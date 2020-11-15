@@ -1,0 +1,29 @@
+pub type Value = f64;
+
+#[derive(Debug)]
+pub struct ValueArray {
+    values: Vec<Value>,
+}
+
+impl ValueArray {
+    pub fn new() -> ValueArray {
+        ValueArray { values: vec![] }
+    }
+
+    pub fn write(&mut self, value: Value) {
+        self.values.push(value);
+    }
+
+    #[allow(dead_code)]
+    pub fn free(self) -> ValueArray {
+        return ValueArray::new();
+    }
+
+    pub fn count(&self) -> usize {
+        self.values.len()
+    }
+
+    pub fn get(&self, index: usize) -> Value {
+        self.values[index]
+    }
+}
