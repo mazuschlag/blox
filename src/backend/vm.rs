@@ -4,109 +4,92 @@ use super::chunk::Chunk;
 use super::chunk::OpCode;
 use super::value::Value;
 
-const STACK_MAX: usize = 256;
-
 pub struct VM {
-    chunk: Option<Chunk>,
     ip: usize,
-    stack: Stack,
+    stack: Vec<Value>,
     debug_trace: bool
 }
 
 impl VM {
     pub fn new(debug_trace: bool) -> VM {
         VM {
-            chunk: None,
             ip: 0,
-            stack: Stack::new(),
+            stack: vec![],
             debug_trace
         }
     }
 
-    pub fn interpret(mut self, chunk: Chunk) -> InterpretResult {
-        self.chunk = Some(chunk);
-        self.run()
+    pub fn interpret(&mut self, chunk: Chunk) -> InterpretResult {
+        self.run(chunk)
     }
 
-    fn run(mut self) -> InterpretResult {
-        if let Some(chunk) = self.chunk {
-            while self.ip < chunk.code.len() {
-                if self.debug_trace {
-                    self.stack.trace();
-                    chunk.disassamble_instruction(self.ip, &chunk.code[self.ip])
-                }
-                match chunk.code[self.ip] {
-                    OpCode::Return => {
-                        println!("{}", self.stack.pop())
-                    },
-                    OpCode::Constant(index) => {
-                        self.stack.push(chunk.constants.get(index))
-                    },
-                    OpCode::Negate => {
-                        let value = -self.stack.pop();
-                        self.stack.push(value);
-                    },
-                    OpCode::Add => self.stack.binary_op(Add::add),
-                    OpCode::Subtract => self.stack.binary_op(Sub::sub),
-                    OpCode::Multiply => self.stack.binary_op(Mul::mul),
-                    OpCode::Divide => self.stack.binary_op(Div::div)
-                }
-                self.ip += 1;
+    fn run(&mut self, chunk: Chunk) -> InterpretResult {
+        while self.ip < chunk.code.len() {
+            if self.debug_trace {
+                self.stack_trace();
+                chunk.disassamble_instruction(self.ip, &chunk.code[self.ip])
             }
+            match chunk.code[self.ip] {
+                OpCode::Return => {
+                    match self.stack.pop() {
+                        Some(value) => println!("{}", value),
+                        None => println!("void")
+                    }
+                },
+                OpCode::Constant(index) => {
+                    self.stack.push(chunk.constants.get(index))
+                },
+                OpCode::Negate => {
+                    match self.stack.pop() {
+                        Some(value) => self.stack.push(-value),
+                        None => return InterpretResult::RuntimeError("Runtime Error: stack is empty".to_string())
+                    }
+                },
+                OpCode::Add => if let Err(err) = self.binary_op(Add::add) {
+                    return InterpretResult::RuntimeError(err)
+                },
+                OpCode::Subtract => if let Err(err) = self.binary_op(Sub::sub) {
+                    return InterpretResult::RuntimeError(err)
+                },
+                OpCode::Multiply => if let Err(err) = self.binary_op(Mul::mul) {
+                    return InterpretResult::RuntimeError(err)
+                },
+                OpCode::Divide => if let Err(err) = self.binary_op(Div::div) {
+                    return InterpretResult::RuntimeError(err)
+                },
+            }
+            self.ip += 1;
         }
         InterpretResult::NoCode
     }
-}
 
-struct Stack {
-    stack: [Value; STACK_MAX],
-    top: usize
-}
-
-impl Stack {
-    fn new() -> Stack {
-        Stack {
-            stack: [0 as Value; STACK_MAX],
-            top: 0
-        }
-    }
-
-    #[allow(dead_code)]
-    fn reset(&mut self) {
-        self.top = 0;
-    }
-
-    fn push(&mut self, value: Value) {
-        self.stack[self.top] = value;
-        self.top += 1;
-    }
-
-    fn pop(&mut self) -> Value {
-        self.top -= 1;
-        self.stack[self.top]
-    }
-
-    fn trace(&self) {
+    fn stack_trace(&self) {
         print!("          ");
-        for index in 0..self.top {
+        for index in 0..self.stack.len() {
             print!("[ {} ]", self.stack[index]);
         }
         println!();
     }
 
-    fn binary_op<F>(&mut self, mut op: F)
+    fn binary_op<F>(&mut self, mut op: F) -> Result<(), String>
         where F: FnMut(Value, Value) -> Value
     {
-        let right = self.pop();
-        let left = self.pop();
-        self.push(op(left, right));
+        let right = self.stack.pop();
+        let left = self.stack.pop();
+        if let Some(a) = left {
+            if let Some(b) = right {
+                self.stack.push(op(a, b));
+                return Ok(())
+            }
+        }
+        return Err("Runtime Error: stack is empty".to_string())
     }
 }
 
 #[allow(dead_code)]
 pub enum InterpretResult {
     Ok,
-    CompileError,
-    RuntimeError,
+    CompileError(String),
+    RuntimeError(String),
     NoCode
 }

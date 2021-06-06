@@ -5,7 +5,7 @@ use crate::backend::chunk::Chunk;
 use crate::backend::vm::VM;
 
 fn main() {
-    let vm = VM::new(true);
+    let mut vm = VM::new(true);
 
     // -((1.2 + 3.4) / 5.6)
     let mut chunk = Chunk::new();
