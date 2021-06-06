@@ -24,5 +24,5 @@ fn main() {
     chunk.write(OpCode::Divide, 1);
     chunk.write(OpCode::Negate, 1);
     chunk.write(OpCode::Return, 1);
-    vm.interpret(chunk);
+    println!("{}", vm.interpret(chunk));
 }

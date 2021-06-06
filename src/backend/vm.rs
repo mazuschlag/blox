@@ -1,4 +1,5 @@
 use std::ops::{Add, Sub, Mul, Div};
+use std::fmt;
 
 use super::chunk::Chunk;
 use super::chunk::OpCode;
@@ -40,10 +41,8 @@ impl VM {
                     self.stack.push(chunk.constants.get(index))
                 },
                 OpCode::Negate => {
-                    match self.stack.pop() {
-                        Some(value) => self.stack.push(-value),
-                        None => return InterpretResult::RuntimeError("Runtime Error: stack is empty".to_string())
-                    }
+                    let top = self.stack.len() - 1;
+                    self.stack[top] = -self.stack[top];
                 },
                 OpCode::Add => if let Err(err) = self.binary_op(Add::add) {
                     return InterpretResult::RuntimeError(err)
@@ -60,7 +59,7 @@ impl VM {
             }
             self.ip += 1;
         }
-        InterpretResult::NoCode
+        InterpretResult::Ok
     }
 
     fn stack_trace(&self) {
@@ -82,14 +81,24 @@ impl VM {
                 return Ok(())
             }
         }
-        return Err("Runtime Error: stack is empty".to_string())
+        return Err(String::from("Not enough values on stack"))
     }
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub enum InterpretResult {
     Ok,
     CompileError(String),
     RuntimeError(String),
-    NoCode
+}
+
+impl fmt::Display for InterpretResult {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            InterpretResult::Ok => write!(f, ""),
+            InterpretResult::CompileError(err) => write!(f, "Compile error: {}", err),
+            InterpretResult::RuntimeError(err) => write!(f, "Runtime error: {}", err),
+        }
+    }
 }

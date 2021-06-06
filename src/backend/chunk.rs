@@ -75,8 +75,8 @@ impl Chunk {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
 #[allow(dead_code)]
+#[derive(Debug, Copy, Clone)]
 pub enum OpCode {
     Constant(usize),
     Return,
