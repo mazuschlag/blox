@@ -39,18 +39,22 @@ impl Chunk {
             self.disassamble_instruction(offset, byte);
         }
     }
-    
+
     pub fn disassamble_instruction(&self, offset: usize, instruction: &OpCode) {
         print!("{:04} ", offset);
         if offset > 0 && self.get_line(offset) == self.get_line(offset - 1) {
             print!("    | ");
         } else {
-            print!("{number:>width$} ", number = self.get_line(offset), width = 5);
+            print!(
+                "{number:>width$} ",
+                number = self.get_line(offset),
+                width = 5
+            );
         }
         match instruction {
             OpCode::Constant(index) => {
                 println!("{} '{}'", instruction, self.constants.get(*index))
-            },
+            }
             _ => println!("{}", instruction),
         };
     }
@@ -75,8 +79,7 @@ impl Chunk {
     }
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum OpCode {
     Constant(usize),
     Return,
@@ -84,18 +87,15 @@ pub enum OpCode {
     Add,
     Subtract,
     Multiply,
-    Divide
+    Divide,
 }
 
 impl fmt::Display for OpCode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            OpCode::Constant(index) => write!(
-                f,
-                "CONSTANT {number:>width$}",
-                number = index,
-                width = 16
-            ),
+            OpCode::Constant(index) => {
+                write!(f, "CONSTANT {number:>width$}", number = index, width = 16)
+            }
             OpCode::Return => write!(f, "RETURN"),
             OpCode::Negate => write!(f, "NEGATE"),
             OpCode::Add => write!(f, "ADD"),

@@ -1,5 +1,9 @@
-use std::ops::{Add, Sub, Mul, Div};
-use std::fmt;
+use std::fs;
+use std::io::{self, BufRead, Write};
+use std::ops::{Add, Div, Mul, Sub};
+
+use crate::error::codes::ErrCode;
+use crate::frontend::compiler::Compiler;
 
 use super::chunk::Chunk;
 use super::chunk::OpCode;
@@ -8,7 +12,7 @@ use super::value::Value;
 pub struct VM {
     ip: usize,
     stack: Vec<Value>,
-    debug_trace: bool
+    debug_trace: bool,
 }
 
 impl VM {
@@ -16,50 +20,82 @@ impl VM {
         VM {
             ip: 0,
             stack: vec![],
-            debug_trace
+            debug_trace,
         }
     }
 
-    pub fn interpret(&mut self, chunk: Chunk) -> InterpretResult {
-        self.run(chunk)
+    pub fn repl(&mut self) -> Result<(), ErrCode> {
+        println!("=== Welcome to blox v1.0");
+        println!("=== Enter 'q' or 'Q' to quit");
+        print!("> ");
+        io::stdout().flush().unwrap();
+        for line in io::stdin().lock().lines() {
+            match line {
+                Ok(input) => {
+                    if input.trim() == "Q" || input.trim() == "q" {
+                        println!("=== Goodbye!");
+                        return Ok(());
+                    }
+                    self.interpret(input)?;
+                    print!("> ");
+                    io::stdout().flush().unwrap();
+                }
+                Err(e) => return Err(ErrCode::RuntimeError(format!("Error reading line: {}", e))),
+            }
+        }
+        Ok(())
     }
 
-    fn run(&mut self, chunk: Chunk) -> InterpretResult {
+    pub fn run_file(&mut self, path: &String) -> Result<(), ErrCode> {
+        let source = fs::read_to_string(path).map_err(|e| ErrCode::ScannerError(e.to_string()))?;
+        self.interpret(source)
+    }
+
+    pub fn interpret(&mut self, source: String) -> Result<(), ErrCode> {
+        Compiler::new().compile(source);
+        Ok(())
+    }
+
+    fn run(&mut self, chunk: Chunk) -> Result<(), ErrCode> {
         while self.ip < chunk.code.len() {
             if self.debug_trace {
                 self.stack_trace();
                 chunk.disassamble_instruction(self.ip, &chunk.code[self.ip])
             }
             match chunk.code[self.ip] {
-                OpCode::Return => {
-                    match self.stack.pop() {
-                        Some(value) => println!("{}", value),
-                        None => println!("void")
-                    }
+                OpCode::Return => match self.stack.pop() {
+                    Some(value) => println!("{}", value),
+                    None => println!("void"),
                 },
-                OpCode::Constant(index) => {
-                    self.stack.push(chunk.constants.get(index))
-                },
+                OpCode::Constant(index) => self.stack.push(chunk.constants.get(index)),
                 OpCode::Negate => {
                     let top = self.stack.len() - 1;
                     self.stack[top] = -self.stack[top];
-                },
-                OpCode::Add => if let Err(err) = self.binary_op(Add::add) {
-                    return InterpretResult::RuntimeError(err)
-                },
-                OpCode::Subtract => if let Err(err) = self.binary_op(Sub::sub) {
-                    return InterpretResult::RuntimeError(err)
-                },
-                OpCode::Multiply => if let Err(err) = self.binary_op(Mul::mul) {
-                    return InterpretResult::RuntimeError(err)
-                },
-                OpCode::Divide => if let Err(err) = self.binary_op(Div::div) {
-                    return InterpretResult::RuntimeError(err)
-                },
+                }
+                OpCode::Add => {
+                    if let Err(e) = self.binary_op(Add::add) {
+                        return Err(ErrCode::RuntimeError(e));
+                    }
+                }
+                OpCode::Subtract => {
+                    if let Err(e) = self.binary_op(Sub::sub) {
+                        return Err(ErrCode::RuntimeError(e));
+                    }
+                }
+                OpCode::Multiply => {
+                    if let Err(e) = self.binary_op(Mul::mul) {
+                        return Err(ErrCode::RuntimeError(e));
+                    }
+                }
+                OpCode::Divide => {
+                    if let Err(e) = self.binary_op(Div::div) {
+                        return Err(ErrCode::RuntimeError(e));
+                    }
+                }
             }
             self.ip += 1;
         }
-        InterpretResult::Ok
+        Ok(())
     }
 
     fn stack_trace(&self) {
@@ -71,34 +107,17 @@ impl VM {
     }
 
     fn binary_op<F>(&mut self, mut op: F) -> Result<(), String>
-        where F: FnMut(Value, Value) -> Value
+    where
+        F: FnMut(Value, Value) -> Value,
     {
         let right = self.stack.pop();
         let left = self.stack.pop();
         if let Some(a) = left {
             if let Some(b) = right {
                 self.stack.push(op(a, b));
-                return Ok(())
+                return Ok(());
             }
         }
-        return Err(String::from("Not enough values on stack"))
-    }
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub enum InterpretResult {
-    Ok,
-    CompileError(String),
-    RuntimeError(String),
-}
-
-impl fmt::Display for InterpretResult {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            InterpretResult::Ok => write!(f, ""),
-            InterpretResult::CompileError(err) => write!(f, "Compile error: {}", err),
-            InterpretResult::RuntimeError(err) => write!(f, "Runtime error: {}", err),
-        }
+        return Err(String::from("Not enough values on stack"));
     }
 }
