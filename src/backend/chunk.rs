@@ -28,11 +28,6 @@ impl Chunk {
     }
 
     #[allow(dead_code)]
-    pub fn free(self) -> Chunk {
-        return Chunk::new();
-    }
-
-    #[allow(dead_code)]
     pub fn disassemble(&self, name: &str) {
         println!("== {} ==", name);
         for (offset, byte) in self.code.iter().enumerate() {

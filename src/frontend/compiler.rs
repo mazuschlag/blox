@@ -1,29 +1,80 @@
-use super::scanner::Scanner;
-use super::scanner::TokenType;
+use std::rc::Rc;
 
-pub struct Compiler;
+use crate::backend::chunk::Chunk;
+use crate::error::codes::ErrCode;
+
+use super::scanner::{Scanner, TokenType, Token};
+
+pub struct Compiler {
+    scanner: Scanner,
+    parser: Parser
+}
 
 impl Compiler {
-    pub fn new() -> Compiler {
-        Compiler
+    pub fn new(source: String) -> Compiler {
+        Compiler {
+            scanner: Scanner::new(source),
+            parser: Parser::new()
+        }
     }
 
-    pub fn compile(&self, source: String) {
-        let mut line = 0;
-        let mut scanner = Scanner::new(source);
-        loop {
-            let token = scanner.scan_token();
-            if token.line != line {
-                print!("{number:>width$} ", number = token.line, width = 5);
-                line = token.line;
-            } else {
-                print!("    | ");
-            }
-            println!("{} '{}.{}'", token.typ, token.length, token.start);
+    pub fn compile(&mut self, chunk: &mut Chunk) -> Result<(), ErrCode> {
+        self.advance()?;
+        self.expression()?;
+        self.consume(TokenType::Eof, "Expect end of expression")
+    }
 
-            if token.typ == TokenType::Eof {
-                return;
+    fn advance(&mut self) -> Result<(), ErrCode> {
+        self.parser.previous = Rc::clone(&self.parser.current);
+        loop {
+            self.parser.current = Rc::new(self.scanner.scan_token());
+            if self.parser.current.typ != TokenType::Error {
+                break;
             }
+            return Err(self.error_at_current());
         }
+        
+        Ok(())
+    }
+
+    fn expression(&mut self) -> Result<(), ErrCode> {
+        Ok(())
+    }
+
+    fn consume(&mut self, typ: TokenType, msg: &str) -> Result<(), ErrCode> {
+        Ok(())
+    }
+
+    fn error_at_current(&self) -> ErrCode {
+        let lexeme = self.scanner.lexeme_at(self.parser.current.start, self.parser.current.length);
+        Compiler::error_at(&self.parser.current, lexeme)
+    }
+
+    fn error(&self) -> ErrCode {
+        let lexeme = self.scanner.lexeme_at(self.parser.previous.start, self.parser.previous.length);
+        Compiler::error_at(&self.parser.previous, lexeme)
+    }
+
+    fn error_at(token: &Token, lexeme: &[char]) -> ErrCode {
+        ErrCode::CompileError(
+            match token.typ { 
+                TokenType::Eof => format!("[line {}] Error at end: {}", token.line, token.message),
+                TokenType::Error => format!("[line {}] Error: {}", token.line, token.message),
+                _ => format!("[line {}] Error at '{}': {}", token.line, lexeme.iter().collect::<String>(), token.message)
+            }
+        )
+    }
+}
+
+struct Parser {
+    current: Rc<Token>,
+    previous: Rc<Token>
+}
+
+impl Parser {
+    pub fn new() -> Parser {
+        let current = Rc::new(Token::new(TokenType::Eof, 0, 0, 0, String::new()));
+        let previous = Rc::new(Token::new(TokenType::Eof, 0, 0, 0, String::new()));
+        Parser { current, previous }
     }
 }

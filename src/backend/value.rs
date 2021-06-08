@@ -14,11 +14,6 @@ impl ValueArray {
         self.values.push(value);
     }
 
-    #[allow(dead_code)]
-    pub fn free(self) -> ValueArray {
-        return ValueArray::new();
-    }
-
     pub fn count(&self) -> usize {
         self.values.len()
     }

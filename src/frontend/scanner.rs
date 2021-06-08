@@ -86,6 +86,10 @@ impl Scanner {
         }
     }
 
+    pub fn lexeme_at(&self, start: usize, length: usize) -> &[char] {
+        return &self.source[start..length]
+    }
+
     fn skip_whitespace_and_comments(&mut self) {
         while !self.is_at_end() {
             match self.peek() {
@@ -281,11 +285,11 @@ pub struct Token {
     pub start: usize,
     pub length: usize,
     pub line: usize,
-    message: String,
+    pub message: String,
 }
 
 impl Token {
-    fn new(typ: TokenType, start: usize, length: usize, line: usize, message: String) -> Token {
+    pub fn new(typ: TokenType, start: usize, length: usize, line: usize, message: String) -> Token {
         Token {
             typ,
             start,

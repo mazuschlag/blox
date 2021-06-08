@@ -52,8 +52,10 @@ impl VM {
     }
 
     pub fn interpret(&mut self, source: String) -> Result<(), ErrCode> {
-        Compiler::new().compile(source);
-        Ok(())
+        let mut chunk = Chunk::new();
+        let compiled = Compiler::new(source).compile(&mut chunk)?;
+        self.ip = 0;
+        self.run(chunk)
     }
 
     fn run(&mut self, chunk: Chunk) -> Result<(), ErrCode> {
