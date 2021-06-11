@@ -1,6 +1,5 @@
 use std::fmt;
 
-
 #[derive(Debug)]
 pub struct Scanner {
     source: Vec<char>,
@@ -87,7 +86,7 @@ impl Scanner {
     }
 
     pub fn lexeme_at(&self, start: usize, length: usize) -> &[char] {
-        return &self.source[start..length]
+        return &self.source[start..length];
     }
 
     fn skip_whitespace_and_comments(&mut self) {
@@ -269,7 +268,7 @@ impl Scanner {
 
     fn check_keyword(&self, start: usize, length: usize, rest: &str, typ: TokenType) -> TokenType {
         if self.current - self.start == start + length {
-            let source_value = &self.source[self.start+1..self.current];
+            let source_value = &self.source[self.start + 1..self.current];
             let rest_value: Vec<char> = rest.chars().collect();
             if source_value == &rest_value {
                 return typ;

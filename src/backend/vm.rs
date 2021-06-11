@@ -9,15 +9,15 @@ use super::chunk::Chunk;
 use super::chunk::OpCode;
 use super::value::Value;
 
-pub struct VM {
+pub struct Vm {
     ip: usize,
     stack: Vec<Value>,
     debug_trace: bool,
 }
 
-impl VM {
-    pub fn new(debug_trace: bool) -> VM {
-        VM {
+impl Vm {
+    pub fn new(debug_trace: bool) -> Vm {
+        Vm {
             ip: 0,
             stack: vec![],
             debug_trace,
@@ -40,14 +40,15 @@ impl VM {
                     print!("> ");
                     io::stdout().flush().unwrap();
                 }
-                Err(e) => return Err(ErrCode::RuntimeError(format!("Error reading line: {}", e))),
+                Err(e) => return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e.to_string())),
             }
         }
         Ok(())
     }
 
     pub fn run_file(&mut self, path: &String) -> Result<(), ErrCode> {
-        let source = fs::read_to_string(path).map_err(|e| ErrCode::ScannerError(e.to_string()))?;
+        let source = fs::read_to_string(path)
+            .map_err(|e| Vm::print_and_return_err(ErrCode::ScannerError, &e.to_string()))?;
         self.interpret(source)
     }
 
@@ -76,22 +77,22 @@ impl VM {
                 }
                 OpCode::Add => {
                     if let Err(e) = self.binary_op(Add::add) {
-                        return Err(ErrCode::RuntimeError(e));
+                        return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e));
                     }
                 }
                 OpCode::Subtract => {
                     if let Err(e) = self.binary_op(Sub::sub) {
-                        return Err(ErrCode::RuntimeError(e));
+                        return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e));
                     }
                 }
                 OpCode::Multiply => {
                     if let Err(e) = self.binary_op(Mul::mul) {
-                        return Err(ErrCode::RuntimeError(e));
+                        return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e));
                     }
                 }
                 OpCode::Divide => {
                     if let Err(e) = self.binary_op(Div::div) {
-                        return Err(ErrCode::RuntimeError(e));
+                        return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e));
                     }
                 }
             }
@@ -121,5 +122,10 @@ impl VM {
             }
         }
         return Err(String::from("Not enough values on stack"));
+    }
+
+    fn print_and_return_err(code: ErrCode, e: &str) -> ErrCode {
+        eprintln!("{}", e);
+        code
     }
 }

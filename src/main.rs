@@ -7,19 +7,22 @@ mod frontend;
 use std::env;
 use std::process;
 
-use crate::backend::vm::VM;
+use crate::backend::vm::Vm;
+use crate::error::codes::ErrCode;
 
 fn main() {
-    let mut vm = VM::new(true);
+    let mut vm = Vm::new(true);
     let args: Vec<String> = env::args().collect();
     let result = match args.len() {
-        1 => vm.repl().map_err(|e| format!("{}", e)),
-        2 => vm.run_file(&args[1]).map_err(|e| format!("{}", e)),
-        _ => Err(String::from("Usage: blox [path]")),
+        1 => vm.repl(),
+        2 => vm.run_file(&args[1]),
+        _ => {
+            eprintln!("Usage: blox [path]");
+            Err(ErrCode::RuntimeError)
+        },
     };
 
-    if let Err(message) = result {
-        eprintln!("{}", message);
+    if let Err(_) = result {
         process::exit(1);
     }
 }
