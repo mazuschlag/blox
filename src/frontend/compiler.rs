@@ -92,7 +92,7 @@ impl Compiler {
 
     fn grouping(&mut self) {
         self.expression();
-        self.consume(TokenType::LeftParen, "Expect ')' after expression");
+        self.consume(TokenType::RightParen, "Expect ')' after expression");
     }
 
     fn binary(&mut self) {
