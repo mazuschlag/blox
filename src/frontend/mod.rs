@@ -1,6 +1,6 @@
 pub mod compiler;
-pub mod parser;
-pub mod precedence;
-pub mod scanner;
-pub mod token;
-pub mod token_type;
+mod parser;
+mod precedence;
+mod scanner;
+mod token;
+mod token_type;

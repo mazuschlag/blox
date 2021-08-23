@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use super::precedence::Precedence;
 use super::token::Token;
 use super::token_type::TokenType;
 
@@ -21,5 +22,21 @@ impl Parser {
             panic_mode: false,
             had_error: false,
         }
+    }
+
+    pub fn previous_type(&self) -> TokenType {
+        self.previous.typ
+    }
+
+    pub fn previous_precedence(&self) -> Precedence {
+        self.previous_type().precedence()
+    }
+
+    pub fn current_type(&self) -> TokenType {
+        self.current.typ
+    }
+
+    pub fn current_precedence(&self) -> Precedence {
+        self.current.typ.precedence()
     }
 }

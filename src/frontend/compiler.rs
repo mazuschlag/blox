@@ -44,7 +44,7 @@ impl Compiler {
     }
 
     pub fn consume(&mut self, typ: TokenType, msg: &str) {
-        if self.parser.current.typ == typ {
+        if self.parser.current_type() == typ {
             self.advance();
             return;
         }
@@ -54,11 +54,11 @@ impl Compiler {
     }
 
     fn advance(&mut self) {
-        if self.parser.current.typ != TokenType::Eof {
+        if self.parser.current_type() != TokenType::Eof {
             self.parser.previous = Rc::clone(&self.parser.current);
             loop {
                 self.parser.current = Rc::new(self.scanner.scan_token());
-                if self.parser.current.typ != TokenType::Error {
+                if self.parser.current_type() != TokenType::Error {
                     break;
                 }
                 let token = Rc::clone(&self.parser.current);
@@ -73,7 +73,7 @@ impl Compiler {
 
     pub fn parse_precedence(&mut self, precedence: Precedence) {
         self.advance();
-        let prefix_rule = self.prefix_rule(self.parser.previous.typ);
+        let prefix_rule = self.prefix_rule(self.parser.previous_type());
         match prefix_rule {
             Some(rule) => rule(self),
             None => {
@@ -82,9 +82,9 @@ impl Compiler {
             }
         }
 
-        while precedence <= self.parser.current.typ.precedence() {
+        while precedence <= self.parser.current_precedence() {
             self.advance();
-            if let Some(rule) = self.infix_rule(self.parser.previous.typ) {
+            if let Some(rule) = self.infix_rule(self.parser.previous_type()) {
                 rule(self);
             }
         }
@@ -96,8 +96,8 @@ impl Compiler {
     }
 
     fn binary(&mut self) {
-        let operator_type = self.parser.previous.typ;
-        self.parse_precedence(self.parser.previous.typ.precedence().next());
+        let operator_type = self.parser.previous_type();
+        self.parse_precedence(self.parser.previous_precedence().next());
         match operator_type {
             TokenType::Plus => self.emit_byte(OpCode::Add),
             TokenType::Minus => self.emit_byte(OpCode::Subtract),
@@ -108,7 +108,7 @@ impl Compiler {
     }
 
     fn unary(&mut self) {
-        let operator_type = self.parser.previous.typ;
+        let operator_type = self.parser.previous_type();
         self.parse_precedence(Precedence::Unary);
         match operator_type {
             TokenType::Minus => self.emit_byte(OpCode::Negate),
