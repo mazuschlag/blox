@@ -2,9 +2,9 @@ use std::fs;
 use std::io::{self, BufRead, Write};
 use std::ops::{Add, Div, Mul, Sub};
 
-use crate::DEBUG_TRACE;
 use crate::error::codes::ErrCode;
 use crate::frontend::compiler::Compiler;
+use crate::DEBUG_TRACE;
 
 use super::chunk::Chunk;
 use super::chunk::OpCode;
@@ -38,7 +38,7 @@ impl Vm {
                     self.interpret(input)?;
                     print!("> ");
                     io::stdout().flush().unwrap();
-                },
+                }
                 Err(e) => {
                     return Err(Vm::print_and_return_err(
                         ErrCode::RuntimeError,
@@ -79,27 +79,27 @@ impl Vm {
                 OpCode::Negate => {
                     let top = self.stack.len() - 1;
                     self.stack[top] = -self.stack[top];
-                },
+                }
                 OpCode::Add => {
                     if let Err(e) = self.binary_op(Add::add) {
                         return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e));
                     }
-                },
+                }
                 OpCode::Subtract => {
                     if let Err(e) = self.binary_op(Sub::sub) {
                         return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e));
                     }
-                },
+                }
                 OpCode::Multiply => {
                     if let Err(e) = self.binary_op(Mul::mul) {
                         return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e));
                     }
-                },
+                }
                 OpCode::Divide => {
                     if let Err(e) = self.binary_op(Div::div) {
                         return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e));
                     }
-                },
+                }
             }
 
             self.ip += 1;

@@ -1,10 +1,10 @@
 use std::rc::Rc;
 
-use crate::DEBUG_PRINT_CODE;
 use crate::backend::chunk::Chunk;
 use crate::backend::chunk::OpCode;
 use crate::backend::value::Value;
 use crate::error::codes::ErrCode;
+use crate::DEBUG_PRINT_CODE;
 
 use super::parser::Parser;
 use super::precedence::Precedence;
