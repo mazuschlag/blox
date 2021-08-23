@@ -2,6 +2,7 @@ use std::fs;
 use std::io::{self, BufRead, Write};
 use std::ops::{Add, Div, Mul, Sub};
 
+use crate::DEBUG_TRACE;
 use crate::error::codes::ErrCode;
 use crate::frontend::compiler::Compiler;
 
@@ -12,15 +13,13 @@ use super::value::Value;
 pub struct Vm {
     ip: usize,
     stack: Vec<Value>,
-    debug_trace: bool,
 }
 
 impl Vm {
-    pub fn new(debug_trace: bool) -> Vm {
+    pub fn new() -> Vm {
         Vm {
             ip: 0,
             stack: vec![],
-            debug_trace,
         }
     }
 
@@ -39,10 +38,16 @@ impl Vm {
                     self.interpret(input)?;
                     print!("> ");
                     io::stdout().flush().unwrap();
+                },
+                Err(e) => {
+                    return Err(Vm::print_and_return_err(
+                        ErrCode::RuntimeError,
+                        &e.to_string(),
+                    ))
                 }
-                Err(e) => return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e.to_string())),
             }
         }
+
         Ok(())
     }
 
@@ -53,18 +58,18 @@ impl Vm {
     }
 
     pub fn interpret(&mut self, source: String) -> Result<(), ErrCode> {
-        let mut chunk = Chunk::new();
-        let compiled = Compiler::new(source).compile(&mut chunk)?;
+        let compiled = Compiler::new(source).compile()?;
         self.ip = 0;
-        self.run(chunk)
+        self.run(compiled)
     }
 
     fn run(&mut self, chunk: Chunk) -> Result<(), ErrCode> {
         while self.ip < chunk.code.len() {
-            if self.debug_trace {
+            if DEBUG_TRACE {
                 self.stack_trace();
                 chunk.disassamble_instruction(self.ip, &chunk.code[self.ip])
             }
+
             match chunk.code[self.ip] {
                 OpCode::Return => match self.stack.pop() {
                     Some(value) => println!("{}", value),
@@ -74,38 +79,41 @@ impl Vm {
                 OpCode::Negate => {
                     let top = self.stack.len() - 1;
                     self.stack[top] = -self.stack[top];
-                }
+                },
                 OpCode::Add => {
                     if let Err(e) = self.binary_op(Add::add) {
                         return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e));
                     }
-                }
+                },
                 OpCode::Subtract => {
                     if let Err(e) = self.binary_op(Sub::sub) {
                         return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e));
                     }
-                }
+                },
                 OpCode::Multiply => {
                     if let Err(e) = self.binary_op(Mul::mul) {
                         return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e));
                     }
-                }
+                },
                 OpCode::Divide => {
                     if let Err(e) = self.binary_op(Div::div) {
                         return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e));
                     }
-                }
+                },
             }
+
             self.ip += 1;
         }
+
         Ok(())
     }
 
     fn stack_trace(&self) {
-        print!("          ");
+        print!("           ");
         for index in 0..self.stack.len() {
             print!("[ {} ]", self.stack[index]);
         }
+
         println!();
     }
 
@@ -121,6 +129,7 @@ impl Vm {
                 return Ok(());
             }
         }
+
         return Err(String::from("Not enough values on stack"));
     }
 
