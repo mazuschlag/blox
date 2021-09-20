@@ -7,7 +7,7 @@ use crate::frontend::compiler::Compiler;
 use crate::DEBUG_TRACE;
 
 use super::chunk::Chunk;
-use super::chunk::OpCode;
+use super::op_code::OpCode;
 use super::value::Value;
 
 pub struct Vm {
@@ -40,7 +40,7 @@ impl Vm {
                     io::stdout().flush().unwrap();
                 }
                 Err(e) => {
-                    return Err(Vm::print_and_return_err(
+                    return Err(Self::print_and_return_err(
                         ErrCode::RuntimeError,
                         &e.to_string(),
                     ))
@@ -53,7 +53,7 @@ impl Vm {
 
     pub fn run_file(&mut self, path: &String) -> Result<(), ErrCode> {
         let source = fs::read_to_string(path)
-            .map_err(|e| Vm::print_and_return_err(ErrCode::ScannerError, &e.to_string()))?;
+            .map_err(|e| Self::print_and_return_err(ErrCode::ScannerError, &e.to_string()))?;
         self.interpret(source)
     }
 
@@ -70,42 +70,71 @@ impl Vm {
                 chunk.disassamble_instruction(self.ip, &chunk.code[self.ip])
             }
 
-            match chunk.code[self.ip] {
-                OpCode::Return => match self.stack.pop() {
-                    Some(value) => println!("{}", value),
-                    None => println!("void"),
-                },
-                OpCode::Constant(index) => self.stack.push(chunk.constants.get(index)),
+            let op_result = match chunk.code[self.ip] {
+                OpCode::Return => {
+                    match self.stack.pop() {
+                        Some(value) => println!("{}", value),
+                        None => println!("void"),
+                    };
+                    Ok(())
+                }
+                OpCode::Constant(index) => Ok(self.stack.push(chunk.constants.get(index))),
                 OpCode::Negate => {
-                    let top = self.stack.len() - 1;
-                    self.stack[top] = -self.stack[top];
-                }
-                OpCode::Add => {
-                    if let Err(e) = self.binary_op(Add::add) {
-                        return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e));
+                    let top = self.stack_top();
+                    if let Value::Number(n) = self.stack[top] {
+                        self.stack[top] = Value::Number(-n);
+                        return Ok(());
                     }
+                    Err(self.runtime_error("Operand must be a number.", &chunk))
                 }
-                OpCode::Subtract => {
-                    if let Err(e) = self.binary_op(Sub::sub) {
-                        return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e));
-                    }
-                }
-                OpCode::Multiply => {
-                    if let Err(e) = self.binary_op(Mul::mul) {
-                        return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e));
-                    }
-                }
-                OpCode::Divide => {
-                    if let Err(e) = self.binary_op(Div::div) {
-                        return Err(Vm::print_and_return_err(ErrCode::RuntimeError, &e));
-                    }
-                }
+                OpCode::Add => self.binary_op(Add::add),
+                OpCode::Subtract => self.binary_op(Sub::sub),
+                OpCode::Multiply => self.binary_op(Mul::mul),
+                OpCode::Divide => self.binary_op(Div::div),
+                OpCode::True => Ok(self.stack.push(Value::Bool(true))),
+                OpCode::False => Ok(self.stack.push(Value::Bool(false))),
+                OpCode::Nil => Ok(self.stack.push(Value::Nil)),
+            };
+
+            if let Err(e) = op_result {
+                return Err(Self::print_and_return_err(
+                    ErrCode::RuntimeError,
+                    &self.runtime_error(&e, &chunk),
+                ));
             }
 
             self.ip += 1;
         }
 
         Ok(())
+    }
+
+    fn binary_op<F>(&mut self, mut op: F) -> Result<(), String>
+    where
+        F: FnMut(f64, f64) -> f64,
+    {
+        let right = self.stack.pop();
+        let left = self.stack.pop();
+        if right.is_none() || left.is_none() {
+            return Err(String::from("Not enough values on stack"));
+        }
+
+        if let Some(Value::Number(a)) = left {
+            if let Some(Value::Number(b)) = right {
+                self.stack.push(Value::Number(op(a, b)));
+                return Ok(());
+            }
+        }
+
+        return Err(String::from("Operands must be numbers"));
+    }
+
+    fn stack_top(&self) -> usize {
+        self.stack.len() - 1
+    }
+
+    fn runtime_error(&self, msg: &str, chunk: &Chunk) -> String {
+        format!("{}\n[line {}] in script\n", msg, chunk.get_line(self.ip))
     }
 
     fn stack_trace(&self) {
@@ -115,22 +144,6 @@ impl Vm {
         }
 
         println!();
-    }
-
-    fn binary_op<F>(&mut self, mut op: F) -> Result<(), String>
-    where
-        F: FnMut(Value, Value) -> Value,
-    {
-        let right = self.stack.pop();
-        let left = self.stack.pop();
-        if let Some(a) = left {
-            if let Some(b) = right {
-                self.stack.push(op(a, b));
-                return Ok(());
-            }
-        }
-
-        return Err(String::from("Not enough values on stack"));
     }
 
     fn print_and_return_err(code: ErrCode, e: &str) -> ErrCode {

@@ -1,5 +1,5 @@
+use super::op_code::OpCode;
 use super::value::{Value, ValueArray};
-use std::fmt;
 
 #[derive(Debug)]
 pub struct Chunk {
@@ -63,7 +63,7 @@ impl Chunk {
         }
     }
 
-    fn get_line(&self, offset: usize) -> usize {
+    pub fn get_line(&self, offset: usize) -> usize {
         let mut current_index = 0;
         let mut line_counter = self.lines[current_index];
         while line_counter <= offset && current_index < self.lines.len() {
@@ -71,32 +71,5 @@ impl Chunk {
             current_index += 1;
         }
         current_index + 1
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum OpCode {
-    Constant(usize),
-    Return,
-    Negate,
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-}
-
-impl fmt::Display for OpCode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            OpCode::Constant(index) => {
-                write!(f, "CONSTANT {number:>width$}", number = index, width = 16)
-            }
-            OpCode::Return => write!(f, "RETURN"),
-            OpCode::Negate => write!(f, "NEGATE"),
-            OpCode::Add => write!(f, "ADD"),
-            OpCode::Subtract => write!(f, "SUBTRACT"),
-            OpCode::Multiply => write!(f, "MULTIPLY"),
-            OpCode::Divide => write!(f, "DIVIDE"),
-        }
     }
 }

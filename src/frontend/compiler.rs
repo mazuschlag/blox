@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::backend::chunk::Chunk;
-use crate::backend::chunk::OpCode;
+use crate::backend::op_code::OpCode;
 use crate::backend::value::Value;
 use crate::error::codes::ErrCode;
 use crate::DEBUG_PRINT_CODE;
@@ -118,8 +118,21 @@ impl Compiler {
 
     fn number(&mut self) {
         let lexeme = self.previous_lexeme();
-        let value = lexeme.parse::<Value>().unwrap();
+        let value = Value::Number(lexeme.parse::<f64>().unwrap());
         self.emit_constant(value);
+    }
+
+    fn literal(&mut self) {
+        match self.parser.previous_type() {
+            TokenType::True => self.emit_byte(OpCode::True),
+            TokenType::False => self.emit_byte(OpCode::False),
+            TokenType::Nil => self.emit_byte(OpCode::Nil),
+            _ => {
+                let token = Rc::clone(&self.parser.previous);
+                let msg = format!("Literal op code should be unreachable for {}", &token.typ);
+                self.error(&msg, &token)
+            }
+        }
     }
 
     fn prefix_rule(&mut self, typ: TokenType) -> Option<fn(&mut Compiler)> {
@@ -127,6 +140,9 @@ impl Compiler {
             TokenType::LeftParen => Some(|compiler| compiler.grouping()),
             TokenType::Minus => Some(|compiler| compiler.unary()),
             TokenType::Number => Some(|compiler| compiler.number()),
+            TokenType::True | TokenType::False | TokenType::Nil => {
+                Some(|compiler| compiler.literal())
+            }
             _ => None,
         }
     }
