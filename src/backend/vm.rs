@@ -23,7 +23,7 @@ impl Vm {
         }
     }
 
-    pub fn repl(&mut self) -> Result<(), ErrCode> {
+    pub fn repl(&mut self) -> bool {
         println!("=== Welcome to blox v1.0");
         println!("=== Enter 'q' or 'Q' to quit");
         print!("> ");
@@ -33,34 +33,41 @@ impl Vm {
                 Ok(input) => {
                     if input.trim() == "Q" || input.trim() == "q" {
                         println!("=== Goodbye!");
-                        return Ok(());
+                        return true;
                     }
-                    self.interpret(input)?;
+                    if self.interpret(input) {
+                        return false;
+                    }
                     print!("> ");
                     io::stdout().flush().unwrap();
                 }
                 Err(e) => {
-                    return Err(Self::print_and_return_err(
+                    Self::print_and_return_err(
                         ErrCode::RuntimeError,
-                        &e.to_string(),
-                    ))
+                        &e.to_string()
+                    );
+                    return false;
                 }
             }
         }
 
-        Ok(())
+        true
     }
 
-    pub fn run_file(&mut self, path: &String) -> Result<(), ErrCode> {
-        let source = fs::read_to_string(path)
-            .map_err(|e| Self::print_and_return_err(ErrCode::ScannerError, &e.to_string()))?;
-        self.interpret(source)
+    pub fn run_file(&mut self, path: &String) -> bool {
+        fs::read_to_string(path)
+            .map_err(|e| Self::print_and_return_err(ErrCode::ScannerError, &e.to_string()))
+            .map(|source| self.interpret(source))
+            .is_err()
     }
 
-    pub fn interpret(&mut self, source: String) -> Result<(), ErrCode> {
-        let compiled = Compiler::new(source).compile()?;
-        self.ip = 0;
-        self.run(compiled)
+    pub fn interpret(&mut self, source: String) -> bool {
+        Compiler::new(source).compile()
+            .map(|compiled| {
+                self.ip = 0;
+                self.run(compiled)
+            })
+            .is_err() 
     }
 
     fn run(&mut self, chunk: Chunk) -> Result<(), ErrCode> {

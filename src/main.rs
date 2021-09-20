@@ -6,7 +6,6 @@ use std::env;
 use std::process;
 
 use crate::backend::vm::Vm;
-use crate::error::codes::ErrCode;
 
 // Debug flags
 const DEBUG_TRACE: bool = false;
@@ -17,16 +16,16 @@ fn main() {
 
     let mut vm = Vm::new();
 
-    let result = match args.len() {
+    let success = match args.len() {
         1 => vm.repl(),
         2 => vm.run_file(&args[1]),
         _ => {
             eprintln!("Usage: blox [path]");
-            Err(ErrCode::RuntimeError)
+            false
         }
     };
 
-    if let Err(_) = result {
+    if !success {
         process::exit(1);
     }
 }
