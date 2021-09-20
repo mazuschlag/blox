@@ -40,10 +40,7 @@ impl Vm {
                     io::stdout().flush().unwrap();
                 }
                 Err(e) => {
-                    Self::print_and_return_err(
-                        ErrCode::RuntimeError,
-                        &e.to_string()
-                    );
+                    Self::print_and_return_err(ErrCode::RuntimeError, &e.to_string());
                 }
             }
         }
@@ -59,12 +56,13 @@ impl Vm {
     }
 
     pub fn interpret(&mut self, source: String) -> bool {
-        Compiler::new(source).compile()
+        Compiler::new(source)
+            .compile()
             .map(|compiled| {
                 self.ip = 0;
                 self.run(compiled)
             })
-            .is_err() 
+            .is_err()
     }
 
     fn run(&mut self, chunk: Chunk) -> Result<(), ErrCode> {
@@ -98,6 +96,10 @@ impl Vm {
                 OpCode::True => Ok(self.stack.push(Value::Bool(true))),
                 OpCode::False => Ok(self.stack.push(Value::Bool(false))),
                 OpCode::Nil => Ok(self.stack.push(Value::Nil)),
+                OpCode::Not => self
+                    .is_falsey()
+                    .map(|value| self.stack.push(Value::Bool(value)))
+                    .map_err(|e| e),
             };
 
             if let Err(e) = op_result {
@@ -130,7 +132,16 @@ impl Vm {
             }
         }
 
-        return Err(String::from("Operands must be numbers"));
+        Err(String::from("Operands must be numbers"))
+    }
+
+    fn is_falsey(&mut self) -> Result<bool, String> {
+        let value = self.stack.pop();
+        if let Some(v) = value {
+            return Ok(v.is_falsey());
+        }
+
+        Err(String::from("Not enough values on stack"))
     }
 
     fn stack_top(&self) -> usize {

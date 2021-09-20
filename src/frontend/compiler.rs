@@ -112,6 +112,7 @@ impl Compiler {
         self.parse_precedence(Precedence::Unary);
         match operator_type {
             TokenType::Minus => self.emit_byte(OpCode::Negate),
+            TokenType::Bang => self.emit_byte(OpCode::Not),
             _ => return,
         };
     }
@@ -143,6 +144,7 @@ impl Compiler {
             TokenType::True | TokenType::False | TokenType::Nil => {
                 Some(|compiler| compiler.literal())
             }
+            TokenType::Bang => Some(|compiler| compiler.unary()),
             _ => None,
         }
     }
@@ -156,10 +158,6 @@ impl Compiler {
         }
     }
 
-    fn emit_byte(&mut self, byte: OpCode) {
-        self.chunk.write(byte, self.parser.previous.line);
-    }
-
     fn emit_return(&mut self) {
         self.emit_byte(OpCode::Return);
     }
@@ -167,6 +165,10 @@ impl Compiler {
     fn emit_constant(&mut self, value: Value) {
         let index = self.make_constant(value);
         self.emit_byte(OpCode::Constant(index));
+    }
+
+    fn emit_byte(&mut self, byte: OpCode) {
+        self.chunk.write(byte, self.parser.previous.line);
     }
 
     fn make_constant(&mut self, value: Value) -> usize {

@@ -1,5 +1,6 @@
 use super::op_code::OpCode;
-use super::value::{Value, ValueArray};
+use super::value::Value;
+use super::value_array::ValueArray;
 
 #[derive(Debug)]
 pub struct Chunk {

@@ -1,10 +1,30 @@
 use std::fmt;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Value {
     Number(f64),
     Bool(bool),
     Nil,
+}
+
+impl Value {
+    pub fn is_falsey(self) -> bool {
+        self == Value::Nil || (self.is_bool() && !self.as_bool())
+    }
+
+    fn is_bool(&self) -> bool {
+        match self {
+            Value::Bool(_) => true,
+            _ => false,
+        }
+    }
+
+    fn as_bool(&self) -> bool {
+        match self {
+            Value::Bool(false) | Value::Nil => false,
+            _ => true,
+        }
+    }
 }
 
 impl fmt::Display for Value {
@@ -14,28 +34,5 @@ impl fmt::Display for Value {
             Self::Bool(b) => write!(f, "{}", b),
             _ => write!(f, "nil"),
         }
-    }
-}
-
-#[derive(Debug)]
-pub struct ValueArray {
-    values: Vec<Value>,
-}
-
-impl ValueArray {
-    pub fn new() -> ValueArray {
-        ValueArray { values: vec![] }
-    }
-
-    pub fn write(&mut self, value: Value) {
-        self.values.push(value);
-    }
-
-    pub fn count(&self) -> usize {
-        self.values.len()
-    }
-
-    pub fn get(&self, index: usize) -> Value {
-        self.values[index]
     }
 }
