@@ -35,9 +35,7 @@ impl Vm {
                         println!("=== Goodbye!");
                         return true;
                     }
-                    if self.interpret(input) {
-                        return false;
-                    }
+                    self.interpret(input);
                     print!("> ");
                     io::stdout().flush().unwrap();
                 }
@@ -46,7 +44,6 @@ impl Vm {
                         ErrCode::RuntimeError,
                         &e.to_string()
                     );
-                    return false;
                 }
             }
         }
