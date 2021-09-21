@@ -88,10 +88,18 @@ impl Vm {
                         _ => Err(self.runtime_error("Operand must be a number", &chunk)),
                     }
                 }
-                OpCode::Add => self.binary_op(&chunk, |a, b| a.num_op(b, Add::add)),
-                OpCode::Subtract => self.binary_op(&chunk, |a, b| a.num_op(b, Sub::sub)),
-                OpCode::Multiply => self.binary_op(&chunk, |a, b| a.num_op(b, Mul::mul)),
-                OpCode::Divide => self.binary_op(&chunk, |a, b| a.num_op(b, Div::div)),
+                OpCode::Add => self.binary_op(&chunk, |left, right| {
+                    left.num_op(right, |a, b| Value::Number(a + b))
+                }),
+                OpCode::Subtract => self.binary_op(&chunk, |left, right| {
+                    left.num_op(right, |a, b| Value::Number(a - b))
+                }),
+                OpCode::Multiply => self.binary_op(&chunk, |left, right| {
+                    left.num_op(right, |a, b| Value::Number(a * b))
+                }),
+                OpCode::Divide => self.binary_op(&chunk, |left, right| {
+                    left.num_op(right, |a, b| Value::Number(a / b))
+                }),
                 OpCode::True => Ok(self.stack.push(Value::Bool(true))),
                 OpCode::False => Ok(self.stack.push(Value::Bool(false))),
                 OpCode::Nil => Ok(self.stack.push(Value::Nil)),
@@ -99,12 +107,12 @@ impl Vm {
                     .is_falsey()
                     .map(|value| self.stack.push(Value::Bool(value))),
                 OpCode::Equal => self.binary_op(&chunk, |a, b| Ok(Value::Bool(a == b))),
-                OpCode::Greater => {
-                    self.binary_op(&chunk, |a, b| a.bool_op(b, |left, right| left > right))
-                }
-                OpCode::Less => {
-                    self.binary_op(&chunk, |a, b| a.bool_op(b, |left, right| left < right))
-                }
+                OpCode::Greater => self.binary_op(&chunk, |left, right| {
+                    left.num_op(right, |a, b| Value::Bool(a > b))
+                }),
+                OpCode::Less => self.binary_op(&chunk, |left, right| {
+                    left.num_op(right, |a, b| Value::Bool(a < b))
+                }),
             };
             if let Err(e) = op_result {
                 return Err(Self::print_and_return_err(

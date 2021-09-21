@@ -14,22 +14,12 @@ impl Value {
 
     pub fn num_op<F>(&self, other: Value, mut op: F) -> Result<Value, String>
     where
-        F: FnMut(f64, f64) -> f64,
+        F: FnMut(f64, f64) -> Value,
     {
         self.num_or_none()
             .zip(other.num_or_none())
             .ok_or(String::from("Operand must be a number"))
-            .map(|(a, b)| Value::Number(op(a, b)))
-    }
-
-    pub fn bool_op<F>(&self, other: Value, mut op: F) -> Result<Value, String>
-    where
-        F: FnMut(f64, f64) -> bool,
-    {
-        self.num_or_none()
-            .zip(other.num_or_none())
-            .ok_or(String::from("Operand must be a number"))
-            .map(|(a, b)| Value::Bool(op(a, b)))
+            .map(|(a, b)| op(a, b))
     }
 
     fn num_or_none(&self) -> Option<f64> {
