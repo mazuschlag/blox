@@ -103,6 +103,12 @@ impl Compiler {
             TokenType::Minus => self.emit_byte(OpCode::Subtract),
             TokenType::Star => self.emit_byte(OpCode::Multiply),
             TokenType::Slash => self.emit_byte(OpCode::Divide),
+            TokenType::EqualEqual => self.emit_byte(OpCode::Equal),
+            TokenType::BangEqual => self.emit_bytes(OpCode::Equal, OpCode::Not),
+            TokenType::Greater => self.emit_byte(OpCode::Greater),
+            TokenType::GreaterEqual => self.emit_bytes(OpCode::Less, OpCode::Not),
+            TokenType::Less => self.emit_byte(OpCode::Less),
+            TokenType::LessEqual => self.emit_bytes(OpCode::Greater, OpCode::Not),
             _ => return,
         };
     }
@@ -151,9 +157,16 @@ impl Compiler {
 
     fn infix_rule(&mut self, typ: TokenType) -> Option<fn(&mut Compiler)> {
         match typ {
-            TokenType::Minus | TokenType::Plus | TokenType::Slash | TokenType::Star => {
-                Some(|compiler| compiler.binary())
-            }
+            TokenType::Minus
+            | TokenType::Plus
+            | TokenType::Slash
+            | TokenType::Star
+            | TokenType::BangEqual
+            | TokenType::EqualEqual
+            | TokenType::Greater
+            | TokenType::GreaterEqual
+            | TokenType::Less
+            | TokenType::LessEqual => Some(|compiler| compiler.binary()),
             _ => None,
         }
     }
@@ -165,6 +178,11 @@ impl Compiler {
     fn emit_constant(&mut self, value: Value) {
         let index = self.make_constant(value);
         self.emit_byte(OpCode::Constant(index));
+    }
+
+    fn emit_bytes(&mut self, first: OpCode, second: OpCode) {
+        self.chunk.write(first, self.parser.previous.line);
+        self.chunk.write(second, self.parser.previous.line);
     }
 
     fn emit_byte(&mut self, byte: OpCode) {

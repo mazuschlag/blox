@@ -54,10 +54,12 @@ pub enum TokenType {
 impl TokenType {
     pub fn precedence(&self) -> Precedence {
         match self {
-            Self::Slash => Precedence::Factor,
-            Self::Star => Precedence::Factor,
-            Self::Minus => Precedence::Term,
-            Self::Plus => Precedence::Term,
+            Self::Slash | Self::Star => Precedence::Factor,
+            Self::Minus | Self::Plus => Precedence::Term,
+            Self::BangEqual | Self::EqualEqual => Precedence::Equality,
+            Self::Greater | Self::GreaterEqual | Self::Less | Self::LessEqual => {
+                Precedence::Comparison
+            }
             _ => Precedence::None,
         }
     }

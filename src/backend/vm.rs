@@ -31,7 +31,7 @@ impl Vm {
         for line in io::stdin().lock().lines() {
             match line {
                 Ok(input) => {
-                    if input.trim() == "Q" || input.trim() == "q" {
+                    if input.to_lowercase().trim() == "q" {
                         println!("=== Goodbye!");
                         return true;
                     }
@@ -83,25 +83,29 @@ impl Vm {
                 OpCode::Constant(index) => Ok(self.stack.push(chunk.constants.get(index))),
                 OpCode::Negate => {
                     let top = self.stack_top();
-                    if let Value::Number(n) = self.stack[top] {
-                        self.stack[top] = Value::Number(-n);
-                        return Ok(());
+                    match self.stack[top] {
+                        Value::Number(n) => Ok(self.stack[top] = Value::Number(-n)),
+                        _ => Err(self.runtime_error("Operand must be a number", &chunk)),
                     }
-                    Err(self.runtime_error("Operand must be a number.", &chunk))
                 }
-                OpCode::Add => self.binary_op(Add::add),
-                OpCode::Subtract => self.binary_op(Sub::sub),
-                OpCode::Multiply => self.binary_op(Mul::mul),
-                OpCode::Divide => self.binary_op(Div::div),
+                OpCode::Add => self.binary_op(&chunk, |a, b| a.num_op(b, Add::add)),
+                OpCode::Subtract => self.binary_op(&chunk, |a, b| a.num_op(b, Sub::sub)),
+                OpCode::Multiply => self.binary_op(&chunk, |a, b| a.num_op(b, Mul::mul)),
+                OpCode::Divide => self.binary_op(&chunk, |a, b| a.num_op(b, Div::div)),
                 OpCode::True => Ok(self.stack.push(Value::Bool(true))),
                 OpCode::False => Ok(self.stack.push(Value::Bool(false))),
                 OpCode::Nil => Ok(self.stack.push(Value::Nil)),
                 OpCode::Not => self
                     .is_falsey()
-                    .map(|value| self.stack.push(Value::Bool(value)))
-                    .map_err(|e| e),
+                    .map(|value| self.stack.push(Value::Bool(value))),
+                OpCode::Equal => self.binary_op(&chunk, |a, b| Ok(Value::Bool(a == b))),
+                OpCode::Greater => {
+                    self.binary_op(&chunk, |a, b| a.bool_op(b, |left, right| left > right))
+                }
+                OpCode::Less => {
+                    self.binary_op(&chunk, |a, b| a.bool_op(b, |left, right| left < right))
+                }
             };
-
             if let Err(e) = op_result {
                 return Err(Self::print_and_return_err(
                     ErrCode::RuntimeError,
@@ -115,24 +119,20 @@ impl Vm {
         Ok(())
     }
 
-    fn binary_op<F>(&mut self, mut op: F) -> Result<(), String>
-    where
-        F: FnMut(f64, f64) -> f64,
-    {
+    fn binary_op(
+        &mut self,
+        chunk: &Chunk,
+        op: fn(Value, Value) -> Result<Value, String>,
+    ) -> Result<(), String> {
         let right = self.stack.pop();
         let left = self.stack.pop();
         if right.is_none() || left.is_none() {
             return Err(String::from("Not enough values on stack"));
         }
 
-        if let Some(Value::Number(a)) = left {
-            if let Some(Value::Number(b)) = right {
-                self.stack.push(Value::Number(op(a, b)));
-                return Ok(());
-            }
-        }
-
-        Err(String::from("Operands must be numbers"))
+        Ok(self
+            .stack
+            .push(op(left.unwrap(), right.unwrap()).map_err(|e| self.runtime_error(&e, chunk))?))
     }
 
     fn is_falsey(&mut self) -> Result<bool, String> {

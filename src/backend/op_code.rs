@@ -13,6 +13,9 @@ pub enum OpCode {
     False,
     Nil,
     Not,
+    Equal,
+    Greater,
+    Less,
 }
 
 impl fmt::Display for OpCode {
@@ -31,6 +34,9 @@ impl fmt::Display for OpCode {
             Self::False => write!(f, "FALSE"),
             Self::Nil => write!(f, "NIL"),
             Self::Not => write!(f, "NOT"),
+            Self::Equal => write!(f, "EQUAL"),
+            Self::Greater => write!(f, "GREATER"),
+            Self::Less => write!(f, "LESS"),
         }
     }
 }
