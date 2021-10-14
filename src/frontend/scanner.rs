@@ -10,8 +10,8 @@ pub struct Scanner {
 }
 
 impl Scanner {
-    pub fn new(source: String) -> Scanner {
-        Scanner {
+    pub fn new(source: String) -> Self {
+        Self {
             source: source.chars().collect(),
             start: 0,
             current: 0,

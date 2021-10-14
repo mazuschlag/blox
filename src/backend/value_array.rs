@@ -19,6 +19,6 @@ impl ValueArray {
     }
 
     pub fn get(&self, index: usize) -> Value {
-        self.values[index]
+        self.values[index].clone()
     }
 }

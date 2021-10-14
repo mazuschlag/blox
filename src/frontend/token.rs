@@ -10,8 +10,8 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn new(typ: TokenType, start: usize, length: usize, line: usize, message: String) -> Token {
-        Token {
+    pub fn new(typ: TokenType, start: usize, length: usize, line: usize, message: String) -> Self {
+        Self {
             typ,
             start,
             length,

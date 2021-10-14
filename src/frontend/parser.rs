@@ -13,10 +13,10 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new() -> Parser {
+    pub fn new() -> Self {
         let current = Rc::new(Token::new(TokenType::None, 0, 0, 0, String::new()));
         let previous = Rc::new(Token::new(TokenType::None, 0, 0, 0, String::new()));
-        Parser {
+        Self {
             current,
             previous,
             panic_mode: false,

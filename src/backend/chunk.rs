@@ -10,8 +10,8 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn new() -> Chunk {
-        Chunk {
+    pub fn new() -> Self {
+        Self {
             code: vec![],
             constants: ValueArray::new(),
             lines: vec![],
@@ -28,7 +28,6 @@ impl Chunk {
         self.constants.count() - 1
     }
 
-    #[allow(dead_code)]
     pub fn disassemble(&self, name: &str) {
         println!("== {} ==", name);
         for (offset, byte) in self.code.iter().enumerate() {

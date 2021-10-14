@@ -14,7 +14,7 @@ pub enum Precedence {
 }
 
 impl Precedence {
-    pub fn next(&self) -> Precedence {
+    pub fn next(&self) -> Self {
         match self {
             Self::None => Self::Assignment,
             Self::Assignment => Self::Or,

@@ -1,6 +1,5 @@
 use std::fs;
 use std::io::{self, BufRead, Write};
-use std::ops::{Add, Div, Mul, Sub};
 
 use crate::error::codes::ErrCode;
 use crate::frontend::compiler::Compiler;
@@ -16,8 +15,8 @@ pub struct Vm {
 }
 
 impl Vm {
-    pub fn new() -> Vm {
-        Vm {
+    pub fn new() -> Self {
+        Self {
             ip: 0,
             stack: vec![],
         }
@@ -88,32 +87,36 @@ impl Vm {
                         _ => Err(self.runtime_error("Operand must be a number", &chunk)),
                     }
                 }
-                OpCode::Add => self.binary_op(&chunk, |left, right| {
-                    left.num_op(right, |a, b| Value::Number(a + b))
+                OpCode::Add => match self.stack.len() < 2 {
+                    true => Err(String::from("Not enough values on stack")),
+                    false => Ok(()),
+                }
+                .and_then(|()| {
+                    match (
+                        &self.stack[self.stack_top()],
+                        &self.stack[self.stack_top() - 1],
+                    ) {
+                        (Value::Str(_), Value::Str(_)) => self.concatenate(),
+                        (Value::Number(_), Value::Number(_)) => {
+                            self.binary_op(|left, right| Value::Number(left + right))
+                        }
+                        _ => Err(String::from("Operands must be two numbers or two strings")),
+                    }
                 }),
-                OpCode::Subtract => self.binary_op(&chunk, |left, right| {
-                    left.num_op(right, |a, b| Value::Number(a - b))
-                }),
-                OpCode::Multiply => self.binary_op(&chunk, |left, right| {
-                    left.num_op(right, |a, b| Value::Number(a * b))
-                }),
-                OpCode::Divide => self.binary_op(&chunk, |left, right| {
-                    left.num_op(right, |a, b| Value::Number(a / b))
-                }),
+                OpCode::Subtract => self.binary_op(|left, right| Value::Number(left - right)),
+                OpCode::Multiply => self.binary_op(|left, right| Value::Number(left * right)),
+                OpCode::Divide => self.binary_op(|left, right| Value::Number(left / right)),
                 OpCode::True => Ok(self.stack.push(Value::Bool(true))),
                 OpCode::False => Ok(self.stack.push(Value::Bool(false))),
                 OpCode::Nil => Ok(self.stack.push(Value::Nil)),
                 OpCode::Not => self
                     .is_falsey()
                     .map(|value| self.stack.push(Value::Bool(value))),
-                OpCode::Equal => self.binary_op(&chunk, |a, b| Ok(Value::Bool(a == b))),
-                OpCode::Greater => self.binary_op(&chunk, |left, right| {
-                    left.num_op(right, |a, b| Value::Bool(a > b))
-                }),
-                OpCode::Less => self.binary_op(&chunk, |left, right| {
-                    left.num_op(right, |a, b| Value::Bool(a < b))
-                }),
+                OpCode::Equal => self.binary_op(|left, right| Value::Bool(left == right)),
+                OpCode::Greater => self.binary_op(|left, right| Value::Bool(left > right)),
+                OpCode::Less => self.binary_op(|left, right| Value::Bool(left < right)),
             };
+
             if let Err(e) = op_result {
                 return Err(Self::print_and_return_err(
                     ErrCode::RuntimeError,
@@ -127,20 +130,23 @@ impl Vm {
         Ok(())
     }
 
-    fn binary_op(
-        &mut self,
-        chunk: &Chunk,
-        op: fn(Value, Value) -> Result<Value, String>,
-    ) -> Result<(), String> {
+    fn binary_op<F>(&mut self, op: F) -> Result<(), String>
+    where
+        F: FnMut(f64, f64) -> Value,
+    {
         let right = self.stack.pop();
         let left = self.stack.pop();
-        if right.is_none() || left.is_none() {
-            return Err(String::from("Not enough values on stack"));
-        }
 
-        Ok(self
-            .stack
-            .push(op(left.unwrap(), right.unwrap()).map_err(|e| self.runtime_error(&e, chunk))?))
+        match (left, right) {
+            (Some(l_value), Some(r_value)) => l_value
+                .num_op(r_value, op)
+                .and_then(|res| Ok(self.stack.push(res))),
+            _ => Err(String::from("Not enough values on stack")),
+        }
+    }
+
+    fn concatenate(&mut self) -> Result<(), String> {
+        Ok(())
     }
 
     fn is_falsey(&mut self) -> Result<bool, String> {

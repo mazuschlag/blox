@@ -19,8 +19,8 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    pub fn new(source: String) -> Compiler {
-        Compiler {
+    pub fn new(source: String) -> Self {
+        Self {
             scanner: Scanner::new(source),
             parser: Parser::new(),
             chunk: Chunk::new(),
@@ -124,9 +124,14 @@ impl Compiler {
     }
 
     fn number(&mut self) {
-        let lexeme = self.previous_lexeme();
-        let value = Value::Number(lexeme.parse::<f64>().unwrap());
+        let number = self.previous_lexeme();
+        let value = Value::Number(number.parse::<f64>().unwrap());
         self.emit_constant(value);
+    }
+
+    fn string(&mut self) {
+        let string = self.previous_lexeme();
+        self.emit_constant(Value::Str(Rc::new(string)));
     }
 
     fn literal(&mut self) {
@@ -147,6 +152,7 @@ impl Compiler {
             TokenType::LeftParen => Some(|compiler| compiler.grouping()),
             TokenType::Minus => Some(|compiler| compiler.unary()),
             TokenType::Number => Some(|compiler| compiler.number()),
+            TokenType::Str => Some(|compiler| compiler.string()),
             TokenType::True | TokenType::False | TokenType::Nil => {
                 Some(|compiler| compiler.literal())
             }
