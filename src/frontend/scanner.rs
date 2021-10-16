@@ -142,6 +142,7 @@ impl Scanner {
     }
 
     fn string_token(&mut self) -> Token {
+        self.start += 1;
         while !self.is_at_end() && self.peek() != '"' {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -169,10 +170,14 @@ impl Scanner {
     }
 
     fn make_token(&self, typ: TokenType) -> Token {
+        let length = match typ {
+            TokenType::Str => self.current - self.start - 1,
+            _ => self.current - self.start
+        };
         Token::new(
             typ,
             self.start,
-            self.current - self.start,
+            length,
             self.line,
             String::new(),
         )

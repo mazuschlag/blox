@@ -1,5 +1,6 @@
 use std::fs;
 use std::io::{self, BufRead, Write};
+use std::rc::Rc;
 
 use crate::error::codes::ErrCode;
 use crate::frontend::compiler::Compiler;
@@ -87,22 +88,16 @@ impl Vm {
                         _ => Err(self.runtime_error("Operand must be a number", &chunk)),
                     }
                 }
-                OpCode::Add => match self.stack.len() < 2 {
-                    true => Err(String::from("Not enough values on stack")),
-                    false => Ok(()),
-                }
-                .and_then(|()| {
-                    match (
-                        &self.stack[self.stack_top()],
-                        &self.stack[self.stack_top() - 1],
-                    ) {
-                        (Value::Str(_), Value::Str(_)) => self.concatenate(),
-                        (Value::Number(_), Value::Number(_)) => {
-                            self.binary_op(|left, right| Value::Number(left + right))
-                        }
-                        _ => Err(String::from("Operands must be two numbers or two strings")),
-                    }
-                }),
+                OpCode::Add => match (self.stack.pop(), self.stack.pop()) {
+                    (Some(Value::Str(b)), Some(Value::Str(a))) => {
+                        Ok(self.stack.push(Value::Str(Rc::new(format!("{}{}", a, b)))))
+                    },
+                    (Some(Value::Number(b)), Some(Value::Number(a))) => {
+                        Ok(self.stack.push(Value::Number(a + b)))
+                    },
+                    (None, _) | (_, None) => Err(String::from("Not enough values on the stack")),
+                    _ => Err(String::from("Operands must be two numbers or two strings")),
+                },
                 OpCode::Subtract => self.binary_op(|left, right| Value::Number(left - right)),
                 OpCode::Multiply => self.binary_op(|left, right| Value::Number(left * right)),
                 OpCode::Divide => self.binary_op(|left, right| Value::Number(left / right)),
@@ -112,7 +107,19 @@ impl Vm {
                 OpCode::Not => self
                     .is_falsey()
                     .map(|value| self.stack.push(Value::Bool(value))),
-                OpCode::Equal => self.binary_op(|left, right| Value::Bool(left == right)),
+                OpCode::Equal => match (self.stack.pop(), self.stack.pop()) {
+                    (Some(Value::Number(b)), Some(Value::Number(a))) => {
+                        Ok(self.stack.push(Value::Bool(a == b)))
+                    },
+                    (Some(Value::Str(b)), Some(Value::Str(a))) => {
+                        Ok(self.stack.push(Value::Bool(a == b)))
+                    },
+                    (Some(Value::Bool(b)), Some(Value::Bool(a))) => {
+                        Ok(self.stack.push(Value::Bool(a == b)))
+                    },
+                    (None, _) | (_, None) => Err(String::from("Not enough values on the stack")),
+                    _ => Err(String::from("Operands must be two numbers, two strings, or two booleans")),
+                },
                 OpCode::Greater => self.binary_op(|left, right| Value::Bool(left > right)),
                 OpCode::Less => self.binary_op(|left, right| Value::Bool(left < right)),
             };
@@ -130,23 +137,15 @@ impl Vm {
         Ok(())
     }
 
-    fn binary_op<F>(&mut self, op: F) -> Result<(), String>
+    fn binary_op<F>(&mut self, mut op: F) -> Result<(), String>
     where
         F: FnMut(f64, f64) -> Value,
     {
-        let right = self.stack.pop();
-        let left = self.stack.pop();
-
-        match (left, right) {
-            (Some(l_value), Some(r_value)) => l_value
-                .num_op(r_value, op)
-                .and_then(|res| Ok(self.stack.push(res))),
-            _ => Err(String::from("Not enough values on stack")),
+        match (self.stack.pop(), self.stack.pop()) {
+            (Some(Value::Number(b)), Some(Value::Number(a))) => Ok(self.stack.push(op(a, b))),
+            (None, _) | (_, None) => Err(String::from("Not enough values on the stack")),
+            _ => Err(String::from("Operand must be a number")),
         }
-    }
-
-    fn concatenate(&mut self) -> Result<(), String> {
-        Ok(())
     }
 
     fn is_falsey(&mut self) -> Result<bool, String> {
