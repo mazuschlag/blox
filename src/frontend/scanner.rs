@@ -172,15 +172,9 @@ impl Scanner {
     fn make_token(&self, typ: TokenType) -> Token {
         let length = match typ {
             TokenType::Str => self.current - self.start - 1,
-            _ => self.current - self.start
+            _ => self.current - self.start,
         };
-        Token::new(
-            typ,
-            self.start,
-            length,
-            self.line,
-            String::new(),
-        )
+        Token::new(typ, self.start, length, self.line, String::new())
     }
 
     fn advance(&mut self) -> char {

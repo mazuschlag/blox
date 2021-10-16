@@ -1,11 +1,13 @@
 use std::fmt;
 use std::rc::Rc;
 
+use super::str_obj::StrObj;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(f64),
     Bool(bool),
-    Str(Rc<String>),
+    Str(Rc<StrObj>),
     Nil,
 }
 
@@ -34,7 +36,7 @@ impl fmt::Display for Value {
         match self {
             Self::Number(n) => write!(f, "{}", n),
             Self::Bool(b) => write!(f, "{}", b),
-            Self::Str(s) => write!(f, "\"{}\"", &s),
+            Self::Str(s) => write!(f, "\"{}\"", &s.value),
             _ => write!(f, "nil"),
         }
     }

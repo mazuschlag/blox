@@ -1,7 +1,9 @@
 use std::rc::Rc;
 
 use crate::backend::chunk::Chunk;
+use crate::backend::obj::Obj;
 use crate::backend::op_code::OpCode;
+use crate::backend::str_obj::StrObj;
 use crate::backend::value::Value;
 use crate::error::codes::ErrCode;
 use crate::DEBUG_PRINT_CODE;
@@ -16,6 +18,7 @@ pub struct Compiler {
     scanner: Scanner,
     parser: Parser,
     chunk: Chunk,
+    objects: Option<Rc<dyn Obj>>,
 }
 
 impl Compiler {
@@ -24,10 +27,11 @@ impl Compiler {
             scanner: Scanner::new(source),
             parser: Parser::new(),
             chunk: Chunk::new(),
+            objects: None,
         }
     }
 
-    pub fn compile(mut self) -> Result<Chunk, ErrCode> {
+    pub fn compile(mut self) -> Result<(Chunk, Option<Rc<dyn Obj>>), ErrCode> {
         self.advance();
         self.expression();
         self.consume(TokenType::Eof, "Expect end of expression");
@@ -40,7 +44,7 @@ impl Compiler {
             self.chunk.disassemble("code");
         }
 
-        Ok(self.chunk)
+        Ok((self.chunk, self.objects))
     }
 
     pub fn consume(&mut self, typ: TokenType, msg: &str) {
@@ -130,8 +134,14 @@ impl Compiler {
     }
 
     fn string(&mut self) {
-        let string = self.previous_lexeme();
-        self.emit_constant(Value::Str(Rc::new(string)));
+        let next_obj = match &self.objects {
+            Some(obj) => Some(Rc::clone(obj)),
+            None => None,
+        };
+
+        let string = Rc::new(StrObj::new(self.previous_lexeme(), next_obj));
+        self.emit_constant(Value::Str(Rc::clone(&string)));
+        self.objects = Some(string);
     }
 
     fn literal(&mut self) {

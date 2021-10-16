@@ -7,12 +7,15 @@ use crate::frontend::compiler::Compiler;
 use crate::DEBUG_TRACE;
 
 use super::chunk::Chunk;
+use super::obj::Obj;
 use super::op_code::OpCode;
+use super::str_obj::StrObj;
 use super::value::Value;
 
 pub struct Vm {
     ip: usize,
     stack: Vec<Value>,
+    objects: Option<Rc<dyn Obj>>,
 }
 
 impl Vm {
@@ -20,6 +23,7 @@ impl Vm {
         Self {
             ip: 0,
             stack: vec![],
+            objects: None,
         }
     }
 
@@ -58,8 +62,9 @@ impl Vm {
     pub fn interpret(&mut self, source: String) -> bool {
         Compiler::new(source)
             .compile()
-            .map(|compiled| {
+            .map(|(compiled, objects)| {
                 self.ip = 0;
+                self.objects = objects;
                 self.run(compiled)
             })
             .is_err()
@@ -90,11 +95,20 @@ impl Vm {
                 }
                 OpCode::Add => match (self.stack.pop(), self.stack.pop()) {
                     (Some(Value::Str(b)), Some(Value::Str(a))) => {
-                        Ok(self.stack.push(Value::Str(Rc::new(format!("{}{}", a, b)))))
-                    },
+                        let next_obj = match &self.objects {
+                            Some(obj) => Some(Rc::clone(obj)),
+                            None => None,
+                        };
+
+                        let string =
+                            Rc::new(StrObj::new(format!("{}{}", a.value, b.value), next_obj));
+                        self.stack.push(Value::Str(Rc::clone(&string)));
+                        self.objects = Some(string);
+                        Ok(())
+                    }
                     (Some(Value::Number(b)), Some(Value::Number(a))) => {
                         Ok(self.stack.push(Value::Number(a + b)))
-                    },
+                    }
                     (None, _) | (_, None) => Err(String::from("Not enough values on the stack")),
                     _ => Err(String::from("Operands must be two numbers or two strings")),
                 },
@@ -110,15 +124,17 @@ impl Vm {
                 OpCode::Equal => match (self.stack.pop(), self.stack.pop()) {
                     (Some(Value::Number(b)), Some(Value::Number(a))) => {
                         Ok(self.stack.push(Value::Bool(a == b)))
-                    },
+                    }
                     (Some(Value::Str(b)), Some(Value::Str(a))) => {
                         Ok(self.stack.push(Value::Bool(a == b)))
-                    },
+                    }
                     (Some(Value::Bool(b)), Some(Value::Bool(a))) => {
                         Ok(self.stack.push(Value::Bool(a == b)))
-                    },
+                    }
                     (None, _) | (_, None) => Err(String::from("Not enough values on the stack")),
-                    _ => Err(String::from("Operands must be two numbers, two strings, or two booleans")),
+                    _ => Err(String::from(
+                        "Operands must be two numbers, two strings, or two booleans",
+                    )),
                 },
                 OpCode::Greater => self.binary_op(|left, right| Value::Bool(left > right)),
                 OpCode::Less => self.binary_op(|left, right| Value::Bool(left < right)),
