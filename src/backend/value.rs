@@ -1,19 +1,17 @@
 use std::fmt;
 use std::rc::Rc;
 
-use super::str_obj::StrObj;
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(f64),
     Bool(bool),
-    Str(Rc<StrObj>),
+    Str(Rc<String>),
     Nil,
 }
 
 impl Value {
-    pub fn is_falsey(self) -> bool {
-        self == Value::Nil || (self.is_bool() && !self.as_bool())
+    pub fn is_falsey(&self) -> bool {
+        *self == Value::Nil || (self.is_bool() && !self.as_bool())
     }
 
     fn is_bool(&self) -> bool {
@@ -36,7 +34,7 @@ impl fmt::Display for Value {
         match self {
             Self::Number(n) => write!(f, "{}", n),
             Self::Bool(b) => write!(f, "{}", b),
-            Self::Str(s) => write!(f, "\"{}\"", &s.value),
+            Self::Str(s) => write!(f, "\"{}\"", &s),
             _ => write!(f, "nil"),
         }
     }

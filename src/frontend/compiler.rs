@@ -3,7 +3,6 @@ use std::rc::Rc;
 use crate::backend::chunk::Chunk;
 use crate::backend::obj::Obj;
 use crate::backend::op_code::OpCode;
-use crate::backend::str_obj::StrObj;
 use crate::backend::value::Value;
 use crate::error::codes::ErrCode;
 use crate::DEBUG_PRINT_CODE;
@@ -18,7 +17,7 @@ pub struct Compiler {
     scanner: Scanner,
     parser: Parser,
     chunk: Chunk,
-    objects: Option<Rc<dyn Obj>>,
+    objects: Option<Rc<Obj>>,
 }
 
 impl Compiler {
@@ -31,7 +30,7 @@ impl Compiler {
         }
     }
 
-    pub fn compile(mut self) -> Result<(Chunk, Option<Rc<dyn Obj>>), ErrCode> {
+    pub fn compile(mut self) -> Result<(Chunk, Option<Rc<Obj>>), ErrCode> {
         self.advance();
         self.expression();
         self.consume(TokenType::Eof, "Expect end of expression");
@@ -138,10 +137,9 @@ impl Compiler {
             Some(obj) => Some(Rc::clone(obj)),
             None => None,
         };
-
-        let string = Rc::new(StrObj::new(self.previous_lexeme(), next_obj));
+        let string = Rc::new(self.previous_lexeme());
         self.emit_constant(Value::Str(Rc::clone(&string)));
-        self.objects = Some(string);
+        self.objects = Some(Rc::new(Obj::new(Value::Str(string), next_obj)));
     }
 
     fn literal(&mut self) {

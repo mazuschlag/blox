@@ -9,13 +9,12 @@ use crate::DEBUG_TRACE;
 use super::chunk::Chunk;
 use super::obj::Obj;
 use super::op_code::OpCode;
-use super::str_obj::StrObj;
 use super::value::Value;
 
 pub struct Vm {
     ip: usize,
     stack: Vec<Value>,
-    objects: Option<Rc<dyn Obj>>,
+    objects: Option<Rc<Obj>>,
 }
 
 impl Vm {
@@ -100,10 +99,9 @@ impl Vm {
                             None => None,
                         };
 
-                        let string =
-                            Rc::new(StrObj::new(format!("{}{}", a.value, b.value), next_obj));
+                        let string = Rc::new(format!("{}{}", a, b));
                         self.stack.push(Value::Str(Rc::clone(&string)));
-                        self.objects = Some(string);
+                        self.objects = Some(Rc::new(Obj::new(Value::Str(string), next_obj)));
                         Ok(())
                     }
                     (Some(Value::Number(b)), Some(Value::Number(a))) => {
