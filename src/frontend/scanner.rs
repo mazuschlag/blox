@@ -3,7 +3,7 @@ use super::token_type::TokenType;
 
 #[derive(Debug)]
 pub struct Scanner {
-    source: Vec<char>,
+    pub source: Vec<char>,
     start: usize,
     current: usize,
     line: usize,

@@ -14,10 +14,10 @@ use super::token::Token;
 use super::token_type::TokenType;
 
 pub struct Compiler {
-    scanner: Scanner,
+    pub scanner: Scanner,
     parser: Parser,
-    chunk: Chunk,
-    objects: Option<Rc<Obj>>,
+    pub chunk: Chunk,
+    pub objects: Option<Rc<Obj>>,
 }
 
 impl Compiler {
@@ -30,7 +30,7 @@ impl Compiler {
         }
     }
 
-    pub fn compile(mut self) -> Result<(Chunk, Option<Rc<Obj>>), ErrCode> {
+    pub fn compile(mut self) -> Result<Compiler, ErrCode> {
         self.advance();
         self.expression();
         self.consume(TokenType::Eof, "Expect end of expression");
@@ -43,7 +43,7 @@ impl Compiler {
             self.chunk.disassemble("code");
         }
 
-        Ok((self.chunk, self.objects))
+        Ok(self)
     }
 
     pub fn consume(&mut self, typ: TokenType, msg: &str) {
@@ -137,9 +137,9 @@ impl Compiler {
             Some(obj) => Some(Rc::clone(obj)),
             None => None,
         };
-        let string = Rc::new(self.previous_lexeme());
-        self.emit_constant(Value::Str(Rc::clone(&string)));
-        self.objects = Some(Rc::new(Obj::new(Value::Str(string), next_obj)));
+        let string = (self.parser.previous.start, self.parser.previous.length);
+        self.emit_constant(Value::SourceStr(string));
+        self.objects = Some(Rc::new(Obj::new(Value::SourceStr(string), next_obj)));
     }
 
     fn literal(&mut self) {

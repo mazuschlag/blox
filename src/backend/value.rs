@@ -6,6 +6,7 @@ pub enum Value {
     Number(f64),
     Bool(bool),
     Str(Rc<String>),
+    SourceStr((usize, usize)),
     Nil,
 }
 
@@ -35,6 +36,7 @@ impl fmt::Display for Value {
             Self::Number(n) => write!(f, "{}", n),
             Self::Bool(b) => write!(f, "{}", b),
             Self::Str(s) => write!(f, "\"{}\"", &s),
+            Self::SourceStr((start, len)) => write!(f, "String at index {} with length {}", start, len),
             _ => write!(f, "nil"),
         }
     }

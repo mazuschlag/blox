@@ -1,6 +1,7 @@
 use std::fs;
 use std::io::{self, BufRead, Write};
 use std::rc::Rc;
+use std::str;
 
 use crate::error::codes::ErrCode;
 use crate::frontend::compiler::Compiler;
@@ -15,6 +16,7 @@ pub struct Vm {
     ip: usize,
     stack: Vec<Value>,
     objects: Option<Rc<Obj>>,
+    source: Vec<char>,
 }
 
 impl Vm {
@@ -23,6 +25,7 @@ impl Vm {
             ip: 0,
             stack: vec![],
             objects: None,
+            source: Vec::new(),
         }
     }
 
@@ -61,10 +64,11 @@ impl Vm {
     pub fn interpret(&mut self, source: String) -> bool {
         Compiler::new(source)
             .compile()
-            .map(|(compiled, objects)| {
+            .map(|compiler| {
                 self.ip = 0;
-                self.objects = objects;
-                self.run(compiled)
+                self.objects = compiler.objects;
+                self.source = compiler.scanner.source;
+                self.run(compiler.chunk)
             })
             .is_err()
     }
@@ -79,6 +83,10 @@ impl Vm {
             let op_result = match chunk.code[self.ip] {
                 OpCode::Return => {
                     match self.stack.pop() {
+                        Some(Value::SourceStr((start, len))) => println!(
+                            "\"{}\"",
+                            self.source[start..start + len].iter().collect::<String>()
+                        ),
                         Some(value) => println!("{}", value),
                         None => println!("void"),
                     };
@@ -93,6 +101,28 @@ impl Vm {
                     }
                 }
                 OpCode::Add => match (self.stack.pop(), self.stack.pop()) {
+                    (Some(Value::SourceStr((b_start, b_len))), Some(Value::SourceStr((a_start, a_len)))) => {
+                        let a = self.source[a_start..a_start + a_len]
+                            .iter()
+                            .collect::<String>();
+                        let b = self.source[b_start..b_start + b_len]
+                            .iter()
+                            .collect::<String>();
+                        self.concat_strings(&a, &b);
+                        Ok(())
+                    }
+                    (Some(Value::SourceStr((start, len))), Some(Value::Str(string_obj))) => {
+                        let source_string =
+                            self.source[start..start + len].iter().collect::<String>();
+                        self.concat_strings(&string_obj, &source_string);
+                        Ok(())
+                    }
+                    (Some(Value::Str(string_obj)), Some(Value::SourceStr((start, len)))) => {
+                        let source_string =
+                            self.source[start..start + len].iter().collect::<String>();
+                        self.concat_strings(&source_string, &string_obj);
+                        Ok(())
+                    }
                     (Some(Value::Str(b)), Some(Value::Str(a))) => {
                         let next_obj = match &self.objects {
                             Some(obj) => Some(Rc::clone(obj)),
@@ -160,6 +190,17 @@ impl Vm {
             (None, _) | (_, None) => Err(String::from("Not enough values on the stack")),
             _ => Err(String::from("Operand must be a number")),
         }
+    }
+
+    fn concat_strings(&mut self, a: &String, b: &String) {
+        let next_obj = match &self.objects {
+            Some(obj) => Some(Rc::clone(obj)),
+            None => None,
+        };
+
+        let string = Rc::new(format!("{}{}", a, b));
+        self.stack.push(Value::Str(Rc::clone(&string)));
+        self.objects = Some(Rc::new(Obj::new(Value::Str(string), next_obj)));
     }
 
     fn is_falsey(&mut self) -> Result<bool, String> {
