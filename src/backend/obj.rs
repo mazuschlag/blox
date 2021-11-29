@@ -4,12 +4,12 @@ use std::rc::Rc;
 use super::value::Value;
 
 pub struct Obj {
-    pub value: Value,
+    pub value: Rc<Value>,
     pub next: Option<Rc<Obj>>,
 }
 
 impl Obj {
-    pub fn new(value: Value, next: Option<Rc<Obj>>) -> Self {
+    pub fn new(value: Rc<Value>, next: Option<Rc<Obj>>) -> Self {
         Self { value, next }
     }
 

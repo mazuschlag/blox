@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::fs;
 use std::io::{self, BufRead, Write};
 use std::rc::Rc;
@@ -14,18 +15,16 @@ use super::value::Value;
 
 pub struct Vm {
     ip: usize,
-    stack: Vec<Value>,
+    stack: Vec<Rc<Value>>,
     objects: Option<Rc<Obj>>,
-    source: Vec<char>,
 }
 
 impl Vm {
     pub fn new() -> Self {
         Self {
             ip: 0,
-            stack: vec![],
+            stack: Vec::new(),
             objects: None,
-            source: Vec::new(),
         }
     }
 
@@ -67,7 +66,6 @@ impl Vm {
             .map(|compiler| {
                 self.ip = 0;
                 self.objects = compiler.objects;
-                self.source = compiler.scanner.source;
                 self.run(compiler.chunk)
             })
             .is_err()
@@ -83,10 +81,6 @@ impl Vm {
             let op_result = match chunk.code[self.ip] {
                 OpCode::Return => {
                     match self.stack.pop() {
-                        Some(Value::SourceStr((start, len))) => println!(
-                            "\"{}\"",
-                            self.source[start..start + len].iter().collect::<String>()
-                        ),
                         Some(value) => println!("{}", value),
                         None => println!("void"),
                     };
@@ -95,75 +89,62 @@ impl Vm {
                 OpCode::Constant(index) => Ok(self.stack.push(chunk.constants.get(index))),
                 OpCode::Negate => {
                     let top = self.stack_top();
-                    match self.stack[top] {
-                        Value::Number(n) => Ok(self.stack[top] = Value::Number(-n)),
+                    match self.stack[top].borrow() {
+                        Value::Number(n) => Ok(self.stack[top] = Rc::new(Value::Number(-n))),
                         _ => Err(self.runtime_error("Operand must be a number", &chunk)),
                     }
                 }
-                OpCode::Add => match (self.stack.pop(), self.stack.pop()) {
-                    (Some(Value::SourceStr((b_start, b_len))), Some(Value::SourceStr((a_start, a_len)))) => {
-                        let a = self.source[a_start..a_start + a_len]
-                            .iter()
-                            .collect::<String>();
-                        let b = self.source[b_start..b_start + b_len]
-                            .iter()
-                            .collect::<String>();
-                        self.concat_strings(&a, &b);
-                        Ok(())
-                    }
-                    (Some(Value::SourceStr((start, len))), Some(Value::Str(string_obj))) => {
-                        let source_string =
-                            self.source[start..start + len].iter().collect::<String>();
-                        self.concat_strings(&string_obj, &source_string);
-                        Ok(())
-                    }
-                    (Some(Value::Str(string_obj)), Some(Value::SourceStr((start, len)))) => {
-                        let source_string =
-                            self.source[start..start + len].iter().collect::<String>();
-                        self.concat_strings(&source_string, &string_obj);
-                        Ok(())
-                    }
-                    (Some(Value::Str(b)), Some(Value::Str(a))) => {
-                        let next_obj = match &self.objects {
-                            Some(obj) => Some(Rc::clone(obj)),
-                            None => None,
-                        };
-
-                        let string = Rc::new(format!("{}{}", a, b));
-                        self.stack.push(Value::Str(Rc::clone(&string)));
-                        self.objects = Some(Rc::new(Obj::new(Value::Str(string), next_obj)));
-                        Ok(())
-                    }
-                    (Some(Value::Number(b)), Some(Value::Number(a))) => {
-                        Ok(self.stack.push(Value::Number(a + b)))
-                    }
-                    (None, _) | (_, None) => Err(String::from("Not enough values on the stack")),
-                    _ => Err(String::from("Operands must be two numbers or two strings")),
-                },
+                OpCode::Add => self.stack.pop().zip(self.stack.pop()).map_or(
+                    Err(String::from("Not enough values on the stack")),
+                    |(a, b)| match (a.borrow(), b.borrow()) {
+                        (Value::SourceStr(b_str), Value::SourceStr(a_str)) => {
+                            self.concat_strings(&a_str.to_string(), &b_str.to_string());
+                            Ok(())
+                        }
+                        (Value::SourceStr(src_str), Value::Str(str_obj)) => {
+                            self.concat_strings(&str_obj, &src_str.to_string());
+                            Ok(())
+                        }
+                        (Value::Str(str_obj), Value::SourceStr(src_str)) => {
+                            self.concat_strings(&src_str.to_string(), &str_obj);
+                            Ok(())
+                        }
+                        (Value::Str(b), Value::Str(a)) => {
+                            self.concat_strings(&a, &b);
+                            Ok(())
+                        }
+                        (Value::Number(b), Value::Number(a)) => {
+                            Ok(self.stack.push(Rc::new(Value::Number(a + b))))
+                        }
+                        _ => Err(String::from("Operands must be two numbers or two strings")),
+                    },
+                ),
                 OpCode::Subtract => self.binary_op(|left, right| Value::Number(left - right)),
                 OpCode::Multiply => self.binary_op(|left, right| Value::Number(left * right)),
                 OpCode::Divide => self.binary_op(|left, right| Value::Number(left / right)),
-                OpCode::True => Ok(self.stack.push(Value::Bool(true))),
-                OpCode::False => Ok(self.stack.push(Value::Bool(false))),
-                OpCode::Nil => Ok(self.stack.push(Value::Nil)),
+                OpCode::True => Ok(self.stack.push(Rc::new(Value::Bool(true)))),
+                OpCode::False => Ok(self.stack.push(Rc::new(Value::Bool(false)))),
+                OpCode::Nil => Ok(self.stack.push(Rc::new(Value::Nil))),
                 OpCode::Not => self
                     .is_falsey()
-                    .map(|value| self.stack.push(Value::Bool(value))),
-                OpCode::Equal => match (self.stack.pop(), self.stack.pop()) {
-                    (Some(Value::Number(b)), Some(Value::Number(a))) => {
-                        Ok(self.stack.push(Value::Bool(a == b)))
-                    }
-                    (Some(Value::Str(b)), Some(Value::Str(a))) => {
-                        Ok(self.stack.push(Value::Bool(a == b)))
-                    }
-                    (Some(Value::Bool(b)), Some(Value::Bool(a))) => {
-                        Ok(self.stack.push(Value::Bool(a == b)))
-                    }
-                    (None, _) | (_, None) => Err(String::from("Not enough values on the stack")),
-                    _ => Err(String::from(
-                        "Operands must be two numbers, two strings, or two booleans",
-                    )),
-                },
+                    .map(|value| self.stack.push(Rc::new(Value::Bool(value)))),
+                OpCode::Equal => self.stack.pop().zip(self.stack.pop()).map_or(
+                    Err(String::from("Not enough values on the stack")),
+                    |(a, b)| match (a.borrow(), b.borrow()) {
+                        (Value::Number(b), Value::Number(a)) => {
+                            Ok(self.stack.push(Rc::new(Value::Bool(a == b))))
+                        }
+                        (Value::Str(b), Value::Str(a)) => {
+                            Ok(self.stack.push(Rc::new(Value::Bool(a == b))))
+                        }
+                        (Value::Bool(b), Value::Bool(a)) => {
+                            Ok(self.stack.push(Rc::new(Value::Bool(a == b))))
+                        }
+                        _ => Err(String::from(
+                            "Operands must be two numbers, two strings, or two booleans",
+                        )),
+                    },
+                ),
                 OpCode::Greater => self.binary_op(|left, right| Value::Bool(left > right)),
                 OpCode::Less => self.binary_op(|left, right| Value::Bool(left < right)),
             };
@@ -185,11 +166,13 @@ impl Vm {
     where
         F: FnMut(f64, f64) -> Value,
     {
-        match (self.stack.pop(), self.stack.pop()) {
-            (Some(Value::Number(b)), Some(Value::Number(a))) => Ok(self.stack.push(op(a, b))),
-            (None, _) | (_, None) => Err(String::from("Not enough values on the stack")),
-            _ => Err(String::from("Operand must be a number")),
-        }
+        self.stack.pop().zip(self.stack.pop()).map_or(
+            Err(String::from("Not enough values on the stack")),
+            |(b, a)| match (a.borrow(), b.borrow()) {
+                (Value::Number(b), Value::Number(a)) => Ok(self.stack.push(Rc::new(op(*a, *b)))),
+                _ => Err(String::from("Operand must be a number")),
+            },
+        )
     }
 
     fn concat_strings(&mut self, a: &String, b: &String) {
@@ -198,9 +181,9 @@ impl Vm {
             None => None,
         };
 
-        let string = Rc::new(format!("{}{}", a, b));
-        self.stack.push(Value::Str(Rc::clone(&string)));
-        self.objects = Some(Rc::new(Obj::new(Value::Str(string), next_obj)));
+        let string = Rc::new(Value::Str(format!("{}{}", a, b)));
+        self.stack.push(Rc::clone(&string));
+        self.objects = Some(Rc::new(Obj::new(string, next_obj)));
     }
 
     fn is_falsey(&mut self) -> Result<bool, String> {

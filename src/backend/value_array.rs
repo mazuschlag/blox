@@ -1,8 +1,10 @@
+use std::rc::Rc;
+
 use super::value::Value;
 
 #[derive(Debug)]
 pub struct ValueArray {
-    values: Vec<Value>,
+    values: Vec<Rc<Value>>,
 }
 
 impl ValueArray {
@@ -10,7 +12,7 @@ impl ValueArray {
         ValueArray { values: vec![] }
     }
 
-    pub fn write(&mut self, value: Value) {
+    pub fn write(&mut self, value: Rc<Value>) {
         self.values.push(value);
     }
 
@@ -18,7 +20,7 @@ impl ValueArray {
         self.values.len()
     }
 
-    pub fn get(&self, index: usize) -> Value {
-        self.values[index].clone()
+    pub fn get(&self, index: usize) -> Rc<Value> {
+        Rc::clone(&self.values[index])
     }
 }

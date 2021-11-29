@@ -1,9 +1,11 @@
 use super::token::Token;
 use super::token_type::TokenType;
 
+use std::rc::Rc;
+
 #[derive(Debug)]
 pub struct Scanner {
-    pub source: Vec<char>,
+    pub source: Rc<Vec<char>>,
     start: usize,
     current: usize,
     line: usize,
@@ -12,7 +14,7 @@ pub struct Scanner {
 impl Scanner {
     pub fn new(source: String) -> Self {
         Self {
-            source: source.chars().collect(),
+            source: Rc::new(source.chars().collect()),
             start: 0,
             current: 0,
             line: 1,

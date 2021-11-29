@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use super::op_code::OpCode;
 use super::value::Value;
 use super::value_array::ValueArray;
@@ -23,7 +25,7 @@ impl Chunk {
         self.write_line(line);
     }
 
-    pub fn add_constant(&mut self, value: Value) -> usize {
+    pub fn add_constant(&mut self, value: Rc<Value>) -> usize {
         self.constants.write(value);
         self.constants.count() - 1
     }

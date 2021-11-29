@@ -3,6 +3,7 @@ use std::rc::Rc;
 use crate::backend::chunk::Chunk;
 use crate::backend::obj::Obj;
 use crate::backend::op_code::OpCode;
+use crate::backend::source_str::SourceStr;
 use crate::backend::value::Value;
 use crate::error::codes::ErrCode;
 use crate::DEBUG_PRINT_CODE;
@@ -128,7 +129,7 @@ impl Compiler {
 
     fn number(&mut self) {
         let number = self.previous_lexeme();
-        let value = Value::Number(number.parse::<f64>().unwrap());
+        let value = Rc::new(Value::Number(number.parse::<f64>().unwrap()));
         self.emit_constant(value);
     }
 
@@ -137,9 +138,13 @@ impl Compiler {
             Some(obj) => Some(Rc::clone(obj)),
             None => None,
         };
-        let string = (self.parser.previous.start, self.parser.previous.length);
-        self.emit_constant(Value::SourceStr(string));
-        self.objects = Some(Rc::new(Obj::new(Value::SourceStr(string), next_obj)));
+        let string = Rc::new(Value::SourceStr(SourceStr::new(
+            self.parser.previous.start,
+            self.parser.previous.length,
+            Rc::clone(&self.scanner.source),
+        )));
+        self.emit_constant(Rc::clone(&string));
+        self.objects = Some(Rc::new(Obj::new(string, next_obj)));
     }
 
     fn literal(&mut self) {
@@ -189,7 +194,7 @@ impl Compiler {
         self.emit_byte(OpCode::Return);
     }
 
-    fn emit_constant(&mut self, value: Value) {
+    fn emit_constant(&mut self, value: Rc<Value>) {
         let index = self.make_constant(value);
         self.emit_byte(OpCode::Constant(index));
     }
@@ -203,7 +208,7 @@ impl Compiler {
         self.chunk.write(byte, self.parser.previous.line);
     }
 
-    fn make_constant(&mut self, value: Value) -> usize {
+    fn make_constant(&mut self, value: Rc<Value>) -> usize {
         self.chunk.add_constant(value)
     }
 
@@ -229,7 +234,7 @@ impl Compiler {
 
     fn current_lexeme(&self) -> String {
         self.scanner
-            .lexeme_at(self.parser.previous.start, self.parser.previous.length)
+            .lexeme_at(self.parser.current.start, self.parser.current.length)
             .iter()
             .collect::<String>()
     }

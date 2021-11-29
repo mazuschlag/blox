@@ -1,12 +1,13 @@
 use std::fmt;
-use std::rc::Rc;
+
+use super::source_str::SourceStr;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(f64),
     Bool(bool),
-    Str(Rc<String>),
-    SourceStr((usize, usize)),
+    Str(String),
+    SourceStr(SourceStr),
     Nil,
 }
 
@@ -35,8 +36,8 @@ impl fmt::Display for Value {
         match self {
             Self::Number(n) => write!(f, "{}", n),
             Self::Bool(b) => write!(f, "{}", b),
-            Self::Str(s) => write!(f, "\"{}\"", &s),
-            Self::SourceStr((start, len)) => write!(f, "String at index {} with length {}", start, len),
+            Self::Str(s) => write!(f, "\"{}\"", s),
+            Self::SourceStr(s) => write!(f, "\"{}\"", s),
             _ => write!(f, "nil"),
         }
     }
