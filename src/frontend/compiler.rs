@@ -78,10 +78,30 @@ impl Compiler {
     }
 
     fn declaration(&mut self) {
-        self.statement();
+        if self.match_and_advance(TokenType::Var) {
+            self.var_declaration();
+        } else {
+            self.statement();
+        }
+
         if self.parser.panic_mode {
             self.synchronize();
         }
+    }
+
+    fn var_declaration(&mut self) {
+        let global = self.parse_variable("Expect variable name.");
+        if self.match_and_advance(TokenType::Equal) {
+            self.expression();
+        } else {
+            self.emit_byte(OpCode::Nil);
+        }
+
+        self.consume(
+            TokenType::SemiColon,
+            "Expect ';' after variable declaration",
+        );
+        self.define_variable(global);
     }
 
     fn statement(&mut self) {
@@ -126,6 +146,19 @@ impl Compiler {
                 rule(self);
             }
         }
+    }
+
+    fn parse_variable(&mut self, error_msg: &str) -> usize {
+        self.consume(TokenType::Identifier, error_msg);
+        self.identifier_constant(self.previous_lexeme())
+    }
+
+    fn define_variable(&mut self, global: usize) {
+        self.emit_byte(OpCode::DefineGlobal(global));
+    }
+
+    fn identifier_constant(&mut self, name: String) -> usize {
+        self.make_constant(Rc::new(Value::Ident(name)))
     }
 
     fn grouping(&mut self) {
@@ -181,6 +214,15 @@ impl Compiler {
         self.objects = Some(Rc::new(Obj::new(string, next_obj)));
     }
 
+    fn variable(&mut self) {
+        self.named_variable(self.previous_lexeme());
+    }
+
+    fn named_variable(&mut self, name: String) {
+        let arg = self.identifier_constant(name);
+        self.emit_byte(OpCode::GetGlobal(arg));
+    }
+
     fn literal(&mut self) {
         match self.parser.previous_type() {
             TokenType::True => self.emit_byte(OpCode::True),
@@ -204,6 +246,7 @@ impl Compiler {
                 Some(|compiler| compiler.literal())
             }
             TokenType::Bang => Some(|compiler| compiler.unary()),
+            TokenType::Identifier => Some(|compiler| compiler.variable()),
             _ => None,
         }
     }

@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::collections::HashMap;
 use std::fs;
 use std::io::{self, BufRead, Write};
 use std::rc::Rc;
@@ -17,6 +18,7 @@ pub struct Vm {
     ip: usize,
     stack: Vec<Rc<Value>>,
     objects: Option<Rc<Obj>>,
+    globals: HashMap<String, Rc<Value>>,
 }
 
 impl Vm {
@@ -25,6 +27,7 @@ impl Vm {
             ip: 0,
             stack: Vec::new(),
             objects: None,
+            globals: HashMap::new(),
         }
     }
 
@@ -146,6 +149,31 @@ impl Vm {
                     Some(_) => Ok(()),
                     None => Err(String::from("Not enough values on the stack")),
                 },
+                OpCode::DefineGlobal(index) => {
+                    let name = chunk.constants.get(index);
+                    match name.borrow() {
+                        Value::Ident(n) => {
+                            let top = self.stack_top();
+                            self.globals.insert(n.clone(), Rc::clone(&self.stack[top]));
+                            self.stack.pop();
+                            Ok(())
+                        }
+                        _ => Err(String::from("Not a valid identifier")),
+                    }
+                }
+                OpCode::GetGlobal(index) => {
+                    let name = chunk.constants.get(index);
+                    match name.borrow() {
+                        Value::Ident(n) => match self.globals.get(n) {
+                            Some(value) => {
+                                self.stack.push(Rc::clone(value));
+                                Ok(())
+                            }
+                            None => Err(format!("Undefined variable {}", name)),
+                        },
+                        _ => Err(String::from("Not a valid identifier")),
+                    }
+                }
             };
 
             if let Err(e) = op_result {
