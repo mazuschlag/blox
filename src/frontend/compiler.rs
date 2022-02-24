@@ -164,7 +164,10 @@ impl Compiler {
     }
 
     fn identifier_constant(&mut self, name: String) -> usize {
-        self.make_constant(Rc::new(Value::Ident(name)))
+        match self.chunk.find_identifier(&name) {
+            Some(index) => index,
+            None =>  self.make_constant(Rc::new(Value::Ident(name)))
+        }  
     }
 
     fn grouping(&mut self) {

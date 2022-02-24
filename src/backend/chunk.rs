@@ -37,6 +37,10 @@ impl Chunk {
         }
     }
 
+    pub fn find_identifier(&self, query: &String) -> Option<usize> {
+        self.constants.find_identifier(query)
+    }
+
     pub fn disassamble_instruction(&self, offset: usize, instruction: &OpCode) {
         print!("{:04} ", offset);
         if offset > 0 && self.get_line(offset) == self.get_line(offset - 1) {
