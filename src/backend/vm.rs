@@ -79,13 +79,7 @@ impl Vm {
             }
 
             let op_result = match chunk.code[self.ip] {
-                OpCode::Return => {
-                    match self.stack.pop() {
-                        Some(value) => println!("{}", value),
-                        None => println!("void"),
-                    };
-                    Ok(())
-                }
+                OpCode::Return => Ok(()),
                 OpCode::Constant(index) => Ok(self.stack.push(chunk.constants.get(index))),
                 OpCode::Negate => {
                     let top = self.stack_top();
@@ -147,6 +141,7 @@ impl Vm {
                 ),
                 OpCode::Greater => self.binary_op(|left, right| Value::Bool(left > right)),
                 OpCode::Less => self.binary_op(|left, right| Value::Bool(left < right)),
+                OpCode::Print => self.print_value(),
             };
 
             if let Err(e) = op_result {
@@ -173,6 +168,16 @@ impl Vm {
                 _ => Err(String::from("Operand must be a number")),
             },
         )
+    }
+
+    fn print_value(&mut self) -> Result<(), String> {
+        match self.stack.pop() {
+            Some(value) => {
+                println!("{}", value);
+                Ok(())
+            }
+            None => Err(String::from("Not enough values on the stack")),
+        }
     }
 
     fn concat_strings(&mut self, a: &String, b: &String) {

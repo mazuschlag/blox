@@ -16,6 +16,7 @@ pub enum OpCode {
     Equal,
     Greater,
     Less,
+    Print,
 }
 
 impl fmt::Display for OpCode {
@@ -37,6 +38,7 @@ impl fmt::Display for OpCode {
             Self::Equal => write!(f, "EQUAL"),
             Self::Greater => write!(f, "GREATER"),
             Self::Less => write!(f, "LESS"),
+            Self::Print => write!(f, "PRINT"),
         }
     }
 }

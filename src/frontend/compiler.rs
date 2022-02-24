@@ -33,7 +33,23 @@ impl Compiler {
 
     pub fn compile(mut self) -> Result<Compiler, ErrCode> {
         self.advance();
-        self.expression();
+        while !self.match_and_advance(TokenType::Eof) {
+            self.declaration();
+        }
+        self.end_compiler()
+    }
+
+    pub fn consume(&mut self, typ: TokenType, msg: &str) {
+        if self.parser.current_type() == typ {
+            self.advance();
+            return;
+        }
+
+        let token = Rc::clone(&self.parser.current);
+        self.error(msg, &token);
+    }
+
+    fn end_compiler(mut self) -> Result<Compiler, ErrCode> {
         self.consume(TokenType::Eof, "Expect end of expression");
         if self.parser.had_error {
             return Err(ErrCode::CompileError);
@@ -45,16 +61,6 @@ impl Compiler {
         }
 
         Ok(self)
-    }
-
-    pub fn consume(&mut self, typ: TokenType, msg: &str) {
-        if self.parser.current_type() == typ {
-            self.advance();
-            return;
-        }
-
-        let token = Rc::clone(&self.parser.current);
-        self.error(msg, &token);
     }
 
     fn advance(&mut self) {
@@ -71,11 +77,27 @@ impl Compiler {
         }
     }
 
-    pub fn expression(&mut self) {
+    fn declaration(&mut self) {
+        self.statement();
+    }
+
+    fn statement(&mut self) {
+        if self.match_and_advance(TokenType::Print) {
+            self.print_statement();
+        }
+    }
+
+    fn print_statement(&mut self) {
+        self.expression();
+        self.consume(TokenType::SemiColon, "Expect ';' after value.");
+        self.emit_byte(OpCode::Print);
+    }
+
+    fn expression(&mut self) {
         self.parse_precedence(Precedence::Assignment);
     }
 
-    pub fn parse_precedence(&mut self, precedence: Precedence) {
+    fn parse_precedence(&mut self, precedence: Precedence) {
         self.advance();
         let prefix_rule = self.prefix_rule(self.parser.previous_type());
         match prefix_rule {
@@ -210,6 +232,19 @@ impl Compiler {
 
     fn make_constant(&mut self, value: Rc<Value>) -> usize {
         self.chunk.add_constant(value)
+    }
+
+    fn match_and_advance(&mut self, typ: TokenType) -> bool {
+        if !self.check(typ) {
+            return false;
+        }
+
+        self.advance();
+        true
+    }
+
+    fn check(&self, typ: TokenType) -> bool {
+        self.parser.current_type() == typ
     }
 
     fn error(&mut self, msg: &str, token: &Token) {
