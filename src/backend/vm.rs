@@ -142,6 +142,10 @@ impl Vm {
                 OpCode::Greater => self.binary_op(|left, right| Value::Bool(left > right)),
                 OpCode::Less => self.binary_op(|left, right| Value::Bool(left < right)),
                 OpCode::Print => self.print_value(),
+                OpCode::Pop => match self.stack.pop() {
+                    Some(_) => Ok(()),
+                    None => Err(String::from("Not enough values on the stack")),
+                },
             };
 
             if let Err(e) = op_result {
