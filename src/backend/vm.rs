@@ -57,7 +57,7 @@ impl Vm {
     }
 
     pub fn run_file(&mut self, path: &String) -> bool {
-        fs::read_to_string(path)
+        !fs::read_to_string(path)
             .map_err(|e| Self::print_and_return_err(ErrCode::ScannerError, &e.to_string()))
             .map(|source| self.interpret(source))
             .is_err()
@@ -149,7 +149,7 @@ impl Vm {
                     Some(_) => Ok(()),
                     None => Err(String::from("Not enough values on the stack")),
                 },
-                OpCode::DefineGlobal(index) => {
+                OpCode::DefGlobal(index) => {
                     let name = chunk.constants.get(index);
                     match name.borrow() {
                         Value::Ident(n) => {
@@ -171,6 +171,21 @@ impl Vm {
                             }
                             None => Err(format!("Undefined variable {}", name)),
                         },
+                        _ => Err(String::from("Not a valid identifier")),
+                    }
+                }
+                OpCode::SetGlobal(index) => {
+                    let name = chunk.constants.get(index);
+                    match name.borrow() {
+                        Value::Ident(n) => {
+                            let top = self.stack_top();
+                            if self.globals.contains_key(n) {
+                                self.globals.insert(n.clone(), Rc::clone(&self.stack[top]));
+                                Ok(())
+                            } else {
+                                Err(format!("Undefined variable {}", name))
+                            }
+                        }
                         _ => Err(String::from("Not a valid identifier")),
                     }
                 }

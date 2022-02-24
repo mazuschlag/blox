@@ -18,8 +18,9 @@ pub enum OpCode {
     Less,
     Print,
     Pop,
-    DefineGlobal(usize),
+    DefGlobal(usize),
     GetGlobal(usize),
+    SetGlobal(usize),
 }
 
 impl fmt::Display for OpCode {
@@ -28,16 +29,14 @@ impl fmt::Display for OpCode {
             Self::Constant(index) => {
                 write!(f, "CONSTANT {number:>width$}", number = index, width = 16)
             }
-            Self::DefineGlobal(index) => {
-                write!(
-                    f,
-                    "DEFINE_GLOBAL {number:>width$}",
-                    number = index,
-                    width = 16
-                )
+            Self::DefGlobal(index) => {
+                write!(f, "DEF_GLOBAL {number:>width$}", number = index, width = 16)
             }
             Self::GetGlobal(index) => {
                 write!(f, "GET_GLOBAL {number:>width$}", number = index, width = 16)
+            }
+            Self::SetGlobal(index) => {
+                write!(f, "SET_GLOBAL {number:>width$}", number = index, width = 16)
             }
             Self::Return => write!(f, "RETURN"),
             Self::Negate => write!(f, "NEGATE"),

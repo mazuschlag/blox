@@ -131,7 +131,8 @@ impl Compiler {
 
     fn parse_precedence(&mut self, precedence: Precedence) {
         self.advance();
-        let prefix_rule = self.prefix_rule(self.parser.previous_type());
+        let can_assign = precedence <= Precedence::Assignment;
+        let prefix_rule = self.prefix_rule(self.parser.previous_type(), can_assign);
         match prefix_rule {
             Some(rule) => rule(self),
             None => {
@@ -146,6 +147,11 @@ impl Compiler {
                 rule(self);
             }
         }
+
+        if !can_assign && self.match_and_advance(TokenType::Equal) {
+            let token = Rc::clone(&self.parser.previous);
+            self.error("Invalid assignment target", &token)
+        }
     }
 
     fn parse_variable(&mut self, error_msg: &str) -> usize {
@@ -154,7 +160,7 @@ impl Compiler {
     }
 
     fn define_variable(&mut self, global: usize) {
-        self.emit_byte(OpCode::DefineGlobal(global));
+        self.emit_byte(OpCode::DefGlobal(global));
     }
 
     fn identifier_constant(&mut self, name: String) -> usize {
@@ -214,12 +220,18 @@ impl Compiler {
         self.objects = Some(Rc::new(Obj::new(string, next_obj)));
     }
 
-    fn variable(&mut self) {
-        self.named_variable(self.previous_lexeme());
+    fn variable(&mut self, can_assign: bool) {
+        self.named_variable(self.previous_lexeme(), can_assign);
     }
 
-    fn named_variable(&mut self, name: String) {
+    fn named_variable(&mut self, name: String, can_assign: bool) {
         let arg = self.identifier_constant(name);
+        if can_assign && self.match_and_advance(TokenType::Equal) {
+            self.expression();
+            self.emit_byte(OpCode::SetGlobal(arg));
+            return;
+        }
+
         self.emit_byte(OpCode::GetGlobal(arg));
     }
 
@@ -236,17 +248,23 @@ impl Compiler {
         }
     }
 
-    fn prefix_rule(&mut self, typ: TokenType) -> Option<fn(&mut Compiler)> {
+    fn prefix_rule(
+        &mut self,
+        typ: TokenType,
+        can_assign: bool,
+    ) -> Option<Box<dyn Fn(&mut Compiler)>> {
         match typ {
-            TokenType::LeftParen => Some(|compiler| compiler.grouping()),
-            TokenType::Minus => Some(|compiler| compiler.unary()),
-            TokenType::Number => Some(|compiler| compiler.number()),
-            TokenType::Str => Some(|compiler| compiler.string()),
+            TokenType::LeftParen => Some(Box::new(|compiler: &mut Compiler| compiler.grouping())),
+            TokenType::Minus => Some(Box::new(|compiler: &mut Compiler| compiler.unary())),
+            TokenType::Number => Some(Box::new(|compiler: &mut Compiler| compiler.number())),
+            TokenType::Str => Some(Box::new(|compiler: &mut Compiler| compiler.string())),
             TokenType::True | TokenType::False | TokenType::Nil => {
-                Some(|compiler| compiler.literal())
+                Some(Box::new(|compiler: &mut Compiler| compiler.literal()))
             }
-            TokenType::Bang => Some(|compiler| compiler.unary()),
-            TokenType::Identifier => Some(|compiler| compiler.variable()),
+            TokenType::Bang => Some(Box::new(|compiler: &mut Compiler| compiler.unary())),
+            TokenType::Identifier => Some(Box::new(move |compiler: &mut Compiler| {
+                compiler.variable(can_assign)
+            })),
             _ => None,
         }
     }
