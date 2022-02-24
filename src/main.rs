@@ -6,6 +6,7 @@ use std::env;
 use std::process;
 
 use crate::backend::vm::Vm;
+use crate::error::codes::ErrCode;
 
 // Debug flags
 const DEBUG_TRACE: bool = false;
@@ -16,16 +17,22 @@ fn main() {
 
     let mut vm = Vm::new();
 
-    let success = match args.len() {
+    let result = match args.len() {
         1 => vm.repl(),
         2 => vm.run_file(&args[1]),
-        _ => {
-            eprintln!("Usage: blox [path]");
-            false
-        }
+        _ => Err(ErrCode::IoError(String::from("Usage: blox [path]")))
     };
 
-    if !success {
-        process::exit(1);
+    match result {
+        Err(ErrCode::CompileError) => process::exit(65),
+        Err(ErrCode::RuntimeError(e)) => {
+            eprintln!("{}", e);
+            process::exit(70);
+        },
+        Err(ErrCode::IoError(e)) => {
+            eprintln!("{}", e);
+            process::exit(74);
+        }
+        _ => ()
     }
 }

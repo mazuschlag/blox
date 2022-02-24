@@ -55,7 +55,6 @@ impl Compiler {
             return Err(ErrCode::CompileError);
         }
 
-        self.emit_return();
         if DEBUG_PRINT_CODE {
             self.chunk.disassemble("code");
         }
@@ -288,6 +287,7 @@ impl Compiler {
         }
     }
 
+    #[allow(dead_code)]
     fn emit_return(&mut self) {
         self.emit_byte(OpCode::Return);
     }

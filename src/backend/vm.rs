@@ -31,7 +31,7 @@ impl Vm {
         }
     }
 
-    pub fn repl(&mut self) -> bool {
+    pub fn repl(&mut self) -> Result<(), ErrCode> {
         println!("=== Welcome to blox v1.0");
         println!("=== Enter 'q' or 'Q' to quit");
         print!("> ");
@@ -41,37 +41,39 @@ impl Vm {
                 Ok(input) => {
                     if input.to_lowercase().trim() == "q" {
                         println!("=== Goodbye!");
-                        return true;
+                        return Ok(());
                     }
-                    self.interpret(input);
+
+                    if let Err(ErrCode::RuntimeError(e)) = self.interpret(input) {
+                        println!("{}", e);
+                    }
+
                     print!("> ");
                     io::stdout().flush().unwrap();
                 }
                 Err(e) => {
-                    Self::print_and_return_err(ErrCode::RuntimeError, &e.to_string());
+                    ErrCode::IoError(e.to_string());
                 }
             }
         }
 
-        true
+        Ok(())
     }
 
-    pub fn run_file(&mut self, path: &String) -> bool {
-        !fs::read_to_string(path)
-            .map_err(|e| Self::print_and_return_err(ErrCode::ScannerError, &e.to_string()))
-            .map(|source| self.interpret(source))
-            .is_err()
+    pub fn run_file(&mut self, path: &String) -> Result<(), ErrCode> {
+        fs::read_to_string(path)
+            .map_err(|e| ErrCode::IoError(e.to_string()))
+            .and_then(|source| self.interpret(source))
     }
 
-    pub fn interpret(&mut self, source: String) -> bool {
+    pub fn interpret(&mut self, source: String) -> Result<(), ErrCode> {
         Compiler::new(source)
             .compile()
-            .map(|compiler| {
+            .and_then(|compiler| {
                 self.ip = 0;
                 self.objects = compiler.objects;
                 self.run(compiler.chunk)
             })
-            .is_err()
     }
 
     fn run(&mut self, chunk: Chunk) -> Result<(), ErrCode> {
@@ -192,10 +194,7 @@ impl Vm {
             };
 
             if let Err(e) = op_result {
-                return Err(Self::print_and_return_err(
-                    ErrCode::RuntimeError,
-                    &self.runtime_error(&e, &chunk),
-                ));
+                return Err(ErrCode::RuntimeError(self.runtime_error(&e, &chunk)));
             }
 
             self.ip += 1;
@@ -262,10 +261,5 @@ impl Vm {
         }
 
         println!();
-    }
-
-    fn print_and_return_err(code: ErrCode, e: &str) -> ErrCode {
-        eprintln!("{}", e);
-        code
     }
 }

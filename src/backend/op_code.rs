@@ -1,5 +1,5 @@
 use std::fmt;
-
+#[allow(dead_code)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum OpCode {
     Constant(usize),
