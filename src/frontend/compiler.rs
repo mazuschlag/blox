@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::backend::chunk::Chunk;
@@ -8,6 +9,7 @@ use crate::backend::value::Value;
 use crate::error::codes::ErrCode;
 use crate::DEBUG_PRINT_CODE;
 
+use super::local::Local;
 use super::parser::Parser;
 use super::precedence::Precedence;
 use super::scanner::Scanner;
@@ -19,6 +21,11 @@ pub struct Compiler {
     parser: Parser,
     pub chunk: Chunk,
     pub objects: Option<Rc<Obj>>,
+    locals: Vec<Rc<RefCell<Local>>>,
+    local_count: usize,
+    scope_depth: usize,
+    panic_mode: bool,
+    had_error: bool,
 }
 
 impl Compiler {
@@ -28,6 +35,11 @@ impl Compiler {
             parser: Parser::new(),
             chunk: Chunk::new(),
             objects: None,
+            locals: Vec::new(),
+            local_count: 0,
+            scope_depth: 0,
+            panic_mode: false,
+            had_error: false,
         }
     }
 
@@ -51,7 +63,7 @@ impl Compiler {
 
     fn end_compiler(mut self) -> Result<Compiler, ErrCode> {
         self.consume(TokenType::Eof, "Expect end of expression");
-        if self.parser.had_error {
+        if self.had_error {
             return Err(ErrCode::CompileError);
         }
 
@@ -83,7 +95,7 @@ impl Compiler {
             self.statement();
         }
 
-        if self.parser.panic_mode {
+        if self.panic_mode {
             self.synchronize();
         }
     }
@@ -109,7 +121,35 @@ impl Compiler {
             return;
         }
 
+        if self.match_and_advance(TokenType::LeftBrace) {
+            self.begin_scope();
+            self.block();
+            self.end_scope();
+            return;
+        }
+
         self.expression_statement();
+    }
+
+    fn begin_scope(&mut self) {
+        self.scope_depth += 1;
+    }
+
+    fn block(&mut self) {
+        while !self.check(TokenType::RightBrace) && !self.check(TokenType::Eof) {
+            self.declaration();
+        }
+        
+        self.consume(TokenType::RightBrace, "Expect '}' after block.");
+    }
+
+    fn end_scope(&mut self) {
+        self.scope_depth -= 1;
+
+        while self.local_count > 0 && self.locals[self.local_count - 1].borrow().depth > self.scope_depth as i32 {
+            self.emit_byte(OpCode::Pop);
+            self.local_count -= 1;
+        }
     }
 
     fn print_statement(&mut self) {
@@ -155,17 +195,67 @@ impl Compiler {
 
     fn parse_variable(&mut self, error_msg: &str) -> usize {
         self.consume(TokenType::Identifier, error_msg);
-        self.identifier_constant(self.previous_lexeme())
+        self.declare_variable();
+        if self.scope_depth > 0 {
+            return 0;
+        }
+
+        self.identifier_constant(Rc::clone(&self.parser.previous))
+    }
+
+    fn declare_variable(&mut self) {
+        if self.scope_depth == 0 {
+            return;
+        }
+
+        let name = Rc::clone(&self.parser.previous);
+        for i in (0..self.local_count).rev() {
+            let local = Rc::clone(&self.locals[i]);
+            if local.borrow().depth > 0 && local.borrow().depth < self.scope_depth as i32 {
+                break;
+            }
+
+            if self.identifiers_equal(&local.borrow().name, &name) {
+                self.error("Already a variable with this name in this scope.", &local.borrow().name);
+            }
+        }
+
+        self.add_local(name);
+    }
+
+    fn identifiers_equal(&self, a: &Token, b: &Token) -> bool {
+        if a.length != b.length {
+            return false;
+        }
+
+        self.scanner.lexeme(a.start, a.length) == self.scanner.lexeme(b.start, b.length)
+    }
+
+    fn add_local(&mut self, name: Rc<Token>) {
+        let local = Rc::new(RefCell::new(Local::new(name)));
+        self.locals.push(local);
+        self.local_count += 1;
     }
 
     fn define_variable(&mut self, global: usize) {
+        if self.scope_depth > 0 {
+            self.mark_initialized();
+            return;
+        }
+
         self.emit_byte(OpCode::DefGlobal(global));
     }
 
-    fn identifier_constant(&mut self, name: String) -> usize {
-        match self.chunk.find_identifier(&name) {
+    fn mark_initialized(&mut self) {
+        let local = Rc::clone(&self.locals[self.local_count - 1]);
+        local.borrow_mut().depth = self.scope_depth as i32;
+    }
+
+    fn identifier_constant(&mut self, name: Rc<Token>) -> usize {
+        let lexeme = self.scanner.lexeme(name.start, name.length);
+        match self.chunk.find_identifier(&lexeme) {
             Some(index) => index,
-            None => self.make_constant(Rc::new(Value::Ident(name))),
+            None => self.make_constant(Rc::new(Value::Ident(lexeme))),
         }
     }
 
@@ -203,7 +293,7 @@ impl Compiler {
     }
 
     fn number(&mut self) {
-        let number = self.previous_lexeme();
+        let number = self.scanner.lexeme(self.parser.previous.start, self.parser.previous.length);
         let value = Rc::new(Value::Number(number.parse::<f64>().unwrap()));
         self.emit_constant(value);
     }
@@ -223,18 +313,40 @@ impl Compiler {
     }
 
     fn variable(&mut self, can_assign: bool) {
-        self.named_variable(self.previous_lexeme(), can_assign);
+        self.named_variable(Rc::clone(&self.parser.previous), can_assign);
     }
 
-    fn named_variable(&mut self, name: String, can_assign: bool) {
-        let arg = self.identifier_constant(name);
+    fn named_variable(&mut self, name: Rc<Token>, can_assign: bool) {
+        let arg = self.resolve_local(&name); 
+        let (get_op, set_op) = match arg {
+            Some(index) => (OpCode::GetLocal(index), OpCode::SetLocal(index)),
+            None => {
+                let index = self.identifier_constant(name);
+                (OpCode::GetGlobal(index), OpCode::SetGlobal(index))
+            }
+        };
+
         if can_assign && self.match_and_advance(TokenType::Equal) {
             self.expression();
-            self.emit_byte(OpCode::SetGlobal(arg));
+            self.emit_byte(set_op);
             return;
         }
 
-        self.emit_byte(OpCode::GetGlobal(arg));
+        self.emit_byte(get_op);
+    }
+
+    fn resolve_local(&mut self, name: &Token) -> Option<usize> {
+        for i in (0..self.local_count).rev() {
+            let local = Rc::clone(&self.locals[i]);
+            if self.identifiers_equal(&local.borrow().name, name) {
+                if local.borrow().depth == -1 {
+                    self.error("Can't read local variable in its own initializer.", name);
+                }
+                return Some(i);
+            }
+        }
+
+        None
     }
 
     fn literal(&mut self) {
@@ -324,7 +436,7 @@ impl Compiler {
     }
 
     fn synchronize(&mut self) {
-        self.parser.panic_mode = false;
+        self.panic_mode = false;
         while self.parser.current_type() != TokenType::Eof {
             if self.parser.previous_type() == TokenType::SemiColon {
                 return;
@@ -345,14 +457,14 @@ impl Compiler {
     }
 
     fn error(&mut self, msg: &str, token: &Token) {
-        if self.parser.panic_mode {
+        if self.panic_mode {
             return;
         }
 
-        self.parser.panic_mode = true;
-        self.parser.had_error = true;
+        self.panic_mode = true;
+        self.had_error = true;
 
-        let lexeme = self.current_lexeme();
+        let lexeme = self.scanner.lexeme(token.start, token.length);
         self.error_at(token, lexeme, msg)
     }
 
@@ -362,19 +474,5 @@ impl Compiler {
             TokenType::Error => println!("[line {}] Error: {}", token.line, msg),
             _ => println!("[line {}] Error at '{}': {}", token.line, lexeme, msg),
         };
-    }
-
-    fn current_lexeme(&self) -> String {
-        self.scanner
-            .lexeme_at(self.parser.current.start, self.parser.current.length)
-            .iter()
-            .collect::<String>()
-    }
-
-    fn previous_lexeme(&self) -> String {
-        self.scanner
-            .lexeme_at(self.parser.previous.start, self.parser.previous.length)
-            .iter()
-            .collect::<String>()
     }
 }

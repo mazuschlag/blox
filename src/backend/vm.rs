@@ -198,6 +198,15 @@ impl Vm {
                         _ => Err(String::from("Not a valid identifier")),
                     }
                 }
+                OpCode::GetLocal(slot) => {
+                    self.stack.push(Rc::clone(&self.stack[slot]));
+                    Ok(())
+                }
+                OpCode::SetLocal(slot) => {
+                    let top = self.stack_top();
+                    self.stack[slot] = Rc::clone(&self.stack[top]);
+                    Ok(())
+                }
             };
 
             if let Err(e) = op_result {

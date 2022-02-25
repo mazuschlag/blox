@@ -21,6 +21,8 @@ pub enum OpCode {
     DefGlobal(usize),
     GetGlobal(usize),
     SetGlobal(usize),
+    GetLocal(usize),
+    SetLocal(usize),
 }
 
 impl fmt::Display for OpCode {
@@ -37,6 +39,12 @@ impl fmt::Display for OpCode {
             }
             Self::SetGlobal(index) => {
                 write!(f, "SET_GLOBAL {number:>width$}", number = index, width = 16)
+            }
+            Self::GetLocal(index) => {
+                write!(f, "GET_LOCAL {number:>width$}", number = index, width = 16)
+            }
+            Self::SetLocal(index) => {
+                write!(f, "SET_LOCAL {number:>width$}", number = index, width = 16)
             }
             Self::Return => write!(f, "RETURN"),
             Self::Negate => write!(f, "NEGATE"),

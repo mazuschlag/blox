@@ -8,8 +8,6 @@ use super::token_type::TokenType;
 pub struct Parser {
     pub current: Rc<Token>,
     pub previous: Rc<Token>,
-    pub panic_mode: bool,
-    pub had_error: bool,
 }
 
 impl Parser {
@@ -19,8 +17,6 @@ impl Parser {
         Self {
             current,
             previous,
-            panic_mode: false,
-            had_error: false,
         }
     }
 

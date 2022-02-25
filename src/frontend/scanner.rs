@@ -87,6 +87,12 @@ impl Scanner {
         }
     }
 
+    pub fn lexeme(&self, start: usize, length: usize) -> String {
+        self.lexeme_at(start, length)
+            .iter()
+            .collect::<String>()
+    }
+
     pub fn lexeme_at(&self, start: usize, length: usize) -> &[char] {
         return &self.source[start..(start + length)];
     }
