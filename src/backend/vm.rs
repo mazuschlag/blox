@@ -95,25 +95,25 @@ impl Vm {
                 }
                 OpCode::Add => self.stack.pop().zip(self.stack.pop()).map_or(
                     Err(String::from("Not enough values on the stack")),
-                    |(a, b)| match (a.borrow(), b.borrow()) {
-                        (Value::SourceStr(b_str), Value::SourceStr(a_str)) => {
-                            self.concat_strings(&a_str.to_string(), &b_str.to_string());
+                    |(right, left)| match (right.borrow(), left.borrow()) {
+                        (Value::SourceStr(r), Value::SourceStr(l)) => {
+                            self.concat_strings(&l.to_string(), &r.to_string());
                             Ok(())
                         }
-                        (Value::SourceStr(src_str), Value::Str(str_obj)) => {
-                            self.concat_strings(&str_obj, &src_str.to_string());
+                        (Value::SourceStr(r), Value::Str(l)) => {
+                            self.concat_strings(&l, &r.to_string());
                             Ok(())
                         }
-                        (Value::Str(str_obj), Value::SourceStr(src_str)) => {
-                            self.concat_strings(&src_str.to_string(), &str_obj);
+                        (Value::Str(r), Value::SourceStr(l)) => {
+                            self.concat_strings(&l.to_string(), &r);
                             Ok(())
                         }
-                        (Value::Str(b), Value::Str(a)) => {
-                            self.concat_strings(&a, &b);
+                        (Value::Str(r), Value::Str(l)) => {
+                            self.concat_strings(&l, &r);
                             Ok(())
                         }
-                        (Value::Number(b), Value::Number(a)) => {
-                            Ok(self.stack.push(Rc::new(Value::Number(a + b))))
+                        (Value::Number(r), Value::Number(l)) => {
+                            Ok(self.stack.push(Rc::new(Value::Number(l + r))))
                         }
                         _ => Err(String::from("Operands must be two numbers or two strings")),
                     },
@@ -129,9 +129,18 @@ impl Vm {
                     .map(|value| self.stack.push(Rc::new(Value::Bool(value)))),
                 OpCode::Equal => self.stack.pop().zip(self.stack.pop()).map_or(
                     Err(String::from("Not enough values on the stack")),
-                    |(a, b)| match (a.borrow(), b.borrow()) {
-                        (Value::Number(b), Value::Number(a)) => {
-                            Ok(self.stack.push(Rc::new(Value::Bool(a == b))))
+                    |(right, left)| match (right.borrow(), left.borrow()) {
+                        (Value::Number(r), Value::Number(l)) => {
+                            Ok(self.stack.push(Rc::new(Value::Bool(l == r))))
+                        }
+                        (Value::SourceStr(r), Value::SourceStr(l)) => {
+                            Ok(self.stack.push(Rc::new(Value::Bool(l.to_string() == r.to_string()))))
+                        }
+                        (Value::SourceStr(r), Value::Str(l)) => {
+                            Ok(self.stack.push(Rc::new(Value::Bool(l == &r.to_string()))))
+                        }
+                        (Value::Str(r), Value::SourceStr(l)) => {
+                            Ok(self.stack.push(Rc::new(Value::Bool(&l.to_string() == r))))
                         }
                         (Value::Str(b), Value::Str(a)) => {
                             Ok(self.stack.push(Rc::new(Value::Bool(a == b))))
