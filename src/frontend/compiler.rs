@@ -211,7 +211,7 @@ impl Compiler {
         let name = Rc::clone(&self.parser.previous);
         for i in (0..self.local_count).rev() {
             let local = Rc::clone(&self.locals[i]);
-            if local.borrow().depth > 0 && local.borrow().depth < self.scope_depth as i32 {
+            if local.borrow().depth != -1 && local.borrow().depth < self.scope_depth as i32 {
                 break;
             }
 
