@@ -67,13 +67,11 @@ impl Vm {
     }
 
     pub fn interpret(&mut self, source: String) -> Result<(), ErrCode> {
-        Compiler::new(source)
-            .compile()
-            .and_then(|compiler| {
-                self.ip = 0;
-                self.objects = compiler.objects;
-                self.run(compiler.chunk)
-            })
+        Compiler::new(source).compile().and_then(|compiler| {
+            self.ip = 0;
+            self.objects = compiler.objects;
+            self.run(compiler.chunk)
+        })
     }
 
     fn run(&mut self, chunk: Chunk) -> Result<(), ErrCode> {
@@ -133,9 +131,9 @@ impl Vm {
                         (Value::Number(r), Value::Number(l)) => {
                             Ok(self.stack.push(Rc::new(Value::Bool(l == r))))
                         }
-                        (Value::SourceStr(r), Value::SourceStr(l)) => {
-                            Ok(self.stack.push(Rc::new(Value::Bool(l.to_string() == r.to_string()))))
-                        }
+                        (Value::SourceStr(r), Value::SourceStr(l)) => Ok(self
+                            .stack
+                            .push(Rc::new(Value::Bool(l.to_string() == r.to_string())))),
                         (Value::SourceStr(r), Value::Str(l)) => {
                             Ok(self.stack.push(Rc::new(Value::Bool(l == &r.to_string()))))
                         }

@@ -4,4 +4,3 @@ pub enum ErrCode {
     RuntimeError(String),
     IoError(String),
 }
-

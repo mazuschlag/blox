@@ -28,11 +28,13 @@ impl ValueArray {
     pub fn find_identifier(&self, query: &String) -> Option<usize> {
         for (index, constant) in self.values.iter().enumerate() {
             let value = Rc::clone(constant);
-            match value.borrow(){
-                Value::Ident(name) => if name == query {
-                    return Some(index);
-                },
-                _ => ()
+            match value.borrow() {
+                Value::Ident(name) => {
+                    if name == query {
+                        return Some(index);
+                    }
+                }
+                _ => (),
             }
         }
 

@@ -20,7 +20,7 @@ fn main() {
     let result = match args.len() {
         1 => vm.repl(),
         2 => vm.run_file(&args[1]),
-        _ => Err(ErrCode::IoError(String::from("Usage: blox [path]")))
+        _ => Err(ErrCode::IoError(String::from("Usage: blox [path]"))),
     };
 
     match result {
@@ -28,11 +28,11 @@ fn main() {
         Err(ErrCode::RuntimeError(e)) => {
             eprintln!("{}", e);
             process::exit(70);
-        },
+        }
         Err(ErrCode::IoError(e)) => {
             eprintln!("{}", e);
             process::exit(74);
         }
-        _ => ()
+        _ => (),
     }
 }
