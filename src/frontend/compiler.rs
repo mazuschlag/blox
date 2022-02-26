@@ -26,6 +26,7 @@ pub struct Compiler {
     scope_depth: usize,
     panic_mode: bool,
     had_error: bool,
+    declaration_start: TokenType,
 }
 
 impl Compiler {
@@ -40,6 +41,7 @@ impl Compiler {
             scope_depth: 0,
             panic_mode: false,
             had_error: false,
+            declaration_start: TokenType::None,
         }
     }
 
@@ -89,8 +91,11 @@ impl Compiler {
     }
 
     fn declaration(&mut self) {
+        self.declaration_start = self.parser.current_type();
         if self.match_and_advance(TokenType::Var) {
             self.var_declaration();
+        } else if self.match_and_advance(TokenType::Val) {
+            self.val_declaration();
         } else {
             self.statement();
         }
@@ -99,9 +104,18 @@ impl Compiler {
             self.synchronize();
         }
     }
+    
+    fn val_declaration(&mut self) {
+        let global = self.parse_variable("Expect variable name.", TokenType::Val);
+        self.parse_variable_expression(global);
+    }
 
     fn var_declaration(&mut self) {
-        let global = self.parse_variable("Expect variable name.");
+        let global = self.parse_variable("Expect variable name.", TokenType::Var);
+        self.parse_variable_expression(global);
+    }
+
+    fn parse_variable_expression(&mut self, global: usize) {
         if self.match_and_advance(TokenType::Equal) {
             self.expression();
         } else {
@@ -195,17 +209,18 @@ impl Compiler {
         }
     }
 
-    fn parse_variable(&mut self, error_msg: &str) -> usize {
+    fn parse_variable(&mut self, error_msg: &str, variable_type: TokenType) -> usize {
         self.consume(TokenType::Identifier, error_msg);
-        self.declare_variable();
+        self.declare_variable(variable_type);
         if self.scope_depth > 0 {
             return 0;
         }
 
-        self.identifier_constant(Rc::clone(&self.parser.previous))
+        let (index, _) = self.identifier_constant(Rc::clone(&self.parser.previous));
+        index
     }
 
-    fn declare_variable(&mut self) {
+    fn declare_variable(&mut self, variable_type: TokenType) {
         if self.scope_depth == 0 {
             return;
         }
@@ -225,7 +240,7 @@ impl Compiler {
             }
         }
 
-        self.add_local(name);
+        self.add_local(name, variable_type);
     }
 
     fn identifiers_equal(&self, a: &Token, b: &Token) -> bool {
@@ -236,8 +251,8 @@ impl Compiler {
         self.scanner.lexeme(a.start, a.length) == self.scanner.lexeme(b.start, b.length)
     }
 
-    fn add_local(&mut self, name: Rc<Token>) {
-        let local = Rc::new(RefCell::new(Local::new(name)));
+    fn add_local(&mut self, name: Rc<Token>, variable_type: TokenType) {
+        let local = Rc::new(RefCell::new(Local::new(name, variable_type)));
         self.locals.push(local);
         self.local_count += 1;
     }
@@ -256,11 +271,20 @@ impl Compiler {
         local.borrow_mut().depth = self.scope_depth as i32;
     }
 
-    fn identifier_constant(&mut self, name: Rc<Token>) -> usize {
+    fn identifier_constant(&mut self, name: Rc<Token>) -> (usize, TokenType) {
         let lexeme = self.scanner.lexeme(name.start, name.length);
         match self.chunk.find_identifier(&lexeme) {
-            Some(index) => index,
-            None => self.make_constant(Rc::new(Value::Ident(lexeme))),
+            Some((index, value)) => match *value {
+                Value::ValIdent(_) => (index, TokenType::Val),
+                _ => (index, TokenType::Var)
+            },
+            None => {
+                let value = match self.declaration_start {
+                    TokenType::Val => Rc::new(Value::ValIdent(lexeme)),
+                    _ => Rc::new(Value::VarIdent(lexeme)),
+                };
+                (self.make_constant(value), self.declaration_start)
+            },
         }
     }
 
@@ -324,14 +348,19 @@ impl Compiler {
     }
 
     fn named_variable(&mut self, name: Rc<Token>, can_assign: bool) {
-        let arg = self.resolve_local(&name);
-        let (get_op, set_op) = match arg {
-            Some(index) => (OpCode::GetLocal(index), OpCode::SetLocal(index)),
+        let variable = Rc::clone(&name);
+        let arg = self.resolve_local(&variable);
+        let (get_op, set_op, dec_type) = match arg {
+            Some((index, dec_type)) => (OpCode::GetLocal(index), OpCode::SetLocal(index), dec_type),
             None => {
-                let index = self.identifier_constant(name);
-                (OpCode::GetGlobal(index), OpCode::SetGlobal(index))
+                let (index, dec_type) = self.identifier_constant(name);
+                (OpCode::GetGlobal(index), OpCode::SetGlobal(index), dec_type)
             }
         };
+
+        if dec_type == TokenType::Val && self.declaration_start != TokenType::Val && self.check(TokenType::Equal) {
+            self.error("Cannot reassign to value.", &variable);
+        }
 
         if can_assign && self.match_and_advance(TokenType::Equal) {
             self.expression();
@@ -342,14 +371,15 @@ impl Compiler {
         self.emit_byte(get_op);
     }
 
-    fn resolve_local(&mut self, name: &Token) -> Option<usize> {
+    fn resolve_local(&mut self, name: &Token) -> Option<(usize, TokenType)> {
         for i in (0..self.local_count).rev() {
             let local = Rc::clone(&self.locals[i]);
             if self.identifiers_equal(&local.borrow().name, name) {
                 if local.borrow().depth == -1 {
                     self.error("Can't read local variable in its own initializer.", name);
                 }
-                return Some(i);
+
+                return Some((i, (local.borrow().dec_type)));
             }
         }
 
@@ -453,6 +483,7 @@ impl Compiler {
                 TokenType::Class
                 | TokenType::Fun
                 | TokenType::Var
+                | TokenType::Val
                 | TokenType::For
                 | TokenType::If
                 | TokenType::While

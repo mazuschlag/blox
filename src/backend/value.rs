@@ -8,7 +8,8 @@ pub enum Value {
     Bool(bool),
     Str(String),
     SourceStr(SourceStr),
-    Ident(String),
+    VarIdent(String),
+    ValIdent(String),
     Nil,
 }
 

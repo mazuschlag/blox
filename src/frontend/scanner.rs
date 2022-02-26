@@ -244,8 +244,23 @@ impl Scanner {
             'p' => self.check_keyword(1, 4, "rint", TokenType::Print),
             'r' => self.check_keyword(1, 5, "eturn", TokenType::Return),
             's' => self.check_keyword(1, 4, "uper", TokenType::Super),
-            'v' => self.check_keyword(1, 2, "ar", TokenType::Var),
             'w' => self.check_keyword(1, 4, "hile", TokenType::While),
+            'v' => {
+
+                if self.current - self.start == 1 || self.source[self.start + 1] != 'a' || self.current - self.start == 2 {
+                    return TokenType::Identifier;
+                }
+
+                if self.source[self.start + 2] == 'r' && self.current - self.start == 3 {
+                    return TokenType::Var;
+                }
+
+                if self.source[self.start + 2] == 'l' && self.current - self.start == 3 {
+                    return TokenType::Val;
+                }
+
+                TokenType::Identifier
+            },
             'f' => {
                 if self.current - self.start == 1 {
                     return TokenType::Identifier;

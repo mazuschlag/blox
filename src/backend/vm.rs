@@ -161,7 +161,7 @@ impl Vm {
                 OpCode::DefGlobal(index) => {
                     let name = chunk.constants.get(index);
                     match name.borrow() {
-                        Value::Ident(n) => {
+                        Value::VarIdent(n) | Value::ValIdent(n) => {
                             let top = self.stack_top();
                             self.globals.insert(n.clone(), Rc::clone(&self.stack[top]));
                             self.stack.pop();
@@ -173,12 +173,12 @@ impl Vm {
                 OpCode::GetGlobal(index) => {
                     let name = chunk.constants.get(index);
                     match name.borrow() {
-                        Value::Ident(n) => match self.globals.get(n) {
+                        Value::VarIdent(n) | Value::ValIdent(n) => match self.globals.get(n) {
                             Some(value) => {
                                 self.stack.push(Rc::clone(value));
                                 Ok(())
                             }
-                            None => Err(format!("Undefined variable {}", name)),
+                            None => Err(format!("Undefined variable {}", n)),
                         },
                         _ => Err(String::from("Not a valid identifier")),
                     }
@@ -186,13 +186,13 @@ impl Vm {
                 OpCode::SetGlobal(index) => {
                     let name = chunk.constants.get(index);
                     match name.borrow() {
-                        Value::Ident(n) => {
+                        Value::VarIdent(n) | Value::ValIdent(n) => {
                             let top = self.stack_top();
                             if self.globals.contains_key(n) {
                                 self.globals.insert(n.clone(), Rc::clone(&self.stack[top]));
                                 Ok(())
                             } else {
-                                Err(format!("Undefined variable {}", name))
+                                Err(format!("Undefined variable {}", n))
                             }
                         }
                         _ => Err(String::from("Not a valid identifier")),
