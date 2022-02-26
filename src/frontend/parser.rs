@@ -14,10 +14,7 @@ impl Parser {
     pub fn new() -> Self {
         let current = Rc::new(Token::new(TokenType::None, 0, 0, 0, String::new()));
         let previous = Rc::new(Token::new(TokenType::None, 0, 0, 0, String::new()));
-        Self {
-            current,
-            previous,
-        }
+        Self { current, previous }
     }
 
     pub fn previous_type(&self) -> TokenType {

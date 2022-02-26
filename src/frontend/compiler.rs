@@ -139,14 +139,16 @@ impl Compiler {
         while !self.check(TokenType::RightBrace) && !self.check(TokenType::Eof) {
             self.declaration();
         }
-        
+
         self.consume(TokenType::RightBrace, "Expect '}' after block.");
     }
 
     fn end_scope(&mut self) {
         self.scope_depth -= 1;
 
-        while self.local_count > 0 && self.locals[self.local_count - 1].borrow().depth > self.scope_depth as i32 {
+        while self.local_count > 0
+            && self.locals[self.local_count - 1].borrow().depth > self.scope_depth as i32
+        {
             self.emit_byte(OpCode::Pop);
             self.local_count -= 1;
         }
@@ -216,7 +218,10 @@ impl Compiler {
             }
 
             if self.identifiers_equal(&local.borrow().name, &name) {
-                self.error("Already a variable with this name in this scope.", &local.borrow().name);
+                self.error(
+                    "Already a variable with this name in this scope.",
+                    &local.borrow().name,
+                );
             }
         }
 
@@ -293,7 +298,9 @@ impl Compiler {
     }
 
     fn number(&mut self) {
-        let number = self.scanner.lexeme(self.parser.previous.start, self.parser.previous.length);
+        let number = self
+            .scanner
+            .lexeme(self.parser.previous.start, self.parser.previous.length);
         let value = Rc::new(Value::Number(number.parse::<f64>().unwrap()));
         self.emit_constant(value);
     }
@@ -317,7 +324,7 @@ impl Compiler {
     }
 
     fn named_variable(&mut self, name: Rc<Token>, can_assign: bool) {
-        let arg = self.resolve_local(&name); 
+        let arg = self.resolve_local(&name);
         let (get_op, set_op) = match arg {
             Some(index) => (OpCode::GetLocal(index), OpCode::SetLocal(index)),
             None => {
