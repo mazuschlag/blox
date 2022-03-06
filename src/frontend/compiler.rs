@@ -10,7 +10,6 @@ use crate::error::codes::ErrCode;
 use crate::DEBUG_PRINT_CODE;
 
 use super::local::Local;
-use super::parser::Parser;
 use super::precedence::Precedence;
 use super::scanner::Scanner;
 use super::token::Token;
@@ -18,7 +17,6 @@ use super::token_type::TokenType;
 
 pub struct Compiler {
     pub scanner: Scanner,
-    parser: Parser,
     pub chunk: Chunk,
     pub objects: Option<Rc<Obj>>,
     locals: Vec<Rc<RefCell<Local>>>,
@@ -27,13 +25,14 @@ pub struct Compiler {
     panic_mode: bool,
     had_error: bool,
     declaration_start: TokenType,
+    current: Rc<Token>,
+    previous: Rc<Token>,
 }
 
 impl Compiler {
     pub fn new(source: String) -> Self {
         Self {
             scanner: Scanner::new(source),
-            parser: Parser::new(),
             chunk: Chunk::new(),
             objects: None,
             locals: Vec::new(),
@@ -42,6 +41,8 @@ impl Compiler {
             panic_mode: false,
             had_error: false,
             declaration_start: TokenType::None,
+            current: Rc::new(Token::new(TokenType::None, 0, 0, 0, String::new())),
+            previous: Rc::new(Token::new(TokenType::None, 0, 0, 0, String::new())),
         }
     }
 
@@ -54,12 +55,12 @@ impl Compiler {
     }
 
     pub fn consume(&mut self, typ: TokenType, msg: &str) {
-        if self.parser.current_type() == typ {
+        if self.current.typ == typ {
             self.advance();
             return;
         }
 
-        let token = Rc::clone(&self.parser.current);
+        let token = Rc::clone(&self.current);
         self.error(msg, &token);
     }
 
@@ -77,21 +78,21 @@ impl Compiler {
     }
 
     fn advance(&mut self) {
-        if self.parser.current_type() != TokenType::Eof {
-            self.parser.previous = Rc::clone(&self.parser.current);
+        if self.current.typ != TokenType::Eof {
+            self.previous = Rc::clone(&self.current);
             loop {
-                self.parser.current = Rc::new(self.scanner.scan_token());
-                if self.parser.current_type() != TokenType::Error {
+                self.current = Rc::new(self.scanner.scan_token());
+                if self.current.typ != TokenType::Error {
                     break;
                 }
-                let token = Rc::clone(&self.parser.current);
+                let token = Rc::clone(&self.current);
                 self.error(&token.message, &token);
             }
         }
     }
 
     fn declaration(&mut self) {
-        self.declaration_start = self.parser.current_type();
+        self.declaration_start = self.current.typ;
         if self.match_and_advance(TokenType::Var) {
             self.var_declaration();
         } else if self.match_and_advance(TokenType::Val) {
@@ -187,24 +188,24 @@ impl Compiler {
     fn parse_precedence(&mut self, precedence: Precedence) {
         self.advance();
         let can_assign = precedence <= Precedence::Assignment;
-        let prefix_rule = self.prefix_rule(self.parser.previous_type(), can_assign);
+        let prefix_rule = self.prefix_rule(self.previous.typ, can_assign);
         match prefix_rule {
             Some(rule) => rule(self),
             None => {
-                let token = Rc::clone(&self.parser.previous);
+                let token = Rc::clone(&self.previous);
                 self.error("Expect expression", &token)
             }
         }
 
-        while precedence <= self.parser.current_precedence() {
+        while precedence <= self.current.typ.precedence() {
             self.advance();
-            if let Some(rule) = self.infix_rule(self.parser.previous_type()) {
+            if let Some(rule) = self.infix_rule(self.previous.typ) {
                 rule(self);
             }
         }
 
         if !can_assign && self.match_and_advance(TokenType::Equal) {
-            let token = Rc::clone(&self.parser.previous);
+            let token = Rc::clone(&self.previous);
             self.error("Invalid assignment target", &token)
         }
     }
@@ -216,7 +217,7 @@ impl Compiler {
             return 0;
         }
 
-        let (index, _) = self.identifier_constant(Rc::clone(&self.parser.previous));
+        let (index, _) = self.identifier_constant(Rc::clone(&self.previous));
         index
     }
 
@@ -225,7 +226,7 @@ impl Compiler {
             return;
         }
 
-        let name = Rc::clone(&self.parser.previous);
+        let name = Rc::clone(&self.previous);
         for i in (0..self.local_count).rev() {
             let local = Rc::clone(&self.locals[i]);
             if local.borrow().depth != -1 && local.borrow().depth < self.scope_depth as i32 {
@@ -294,8 +295,8 @@ impl Compiler {
     }
 
     fn binary(&mut self) {
-        let operator_type = self.parser.previous_type();
-        self.parse_precedence(self.parser.previous_precedence().next());
+        let operator_type = self.previous.typ;
+        self.parse_precedence(self.previous.typ.precedence().next());
         match operator_type {
             TokenType::Plus => self.emit_byte(OpCode::Add),
             TokenType::Minus => self.emit_byte(OpCode::Subtract),
@@ -312,7 +313,7 @@ impl Compiler {
     }
 
     fn unary(&mut self) {
-        let operator_type = self.parser.previous_type();
+        let operator_type = self.previous.typ;
         self.parse_precedence(Precedence::Unary);
         match operator_type {
             TokenType::Minus => self.emit_byte(OpCode::Negate),
@@ -324,7 +325,7 @@ impl Compiler {
     fn number(&mut self) {
         let number = self
             .scanner
-            .lexeme(self.parser.previous.start, self.parser.previous.length);
+            .lexeme(self.previous.start, self.previous.length);
         let value = Rc::new(Value::Number(number.parse::<f64>().unwrap()));
         self.emit_constant(value);
     }
@@ -335,8 +336,8 @@ impl Compiler {
             None => None,
         };
         let string = Rc::new(Value::SourceStr(SourceStr::new(
-            self.parser.previous.start,
-            self.parser.previous.length,
+            self.previous.start,
+            self.previous.length,
             Rc::clone(&self.scanner.source),
         )));
         self.emit_constant(Rc::clone(&string));
@@ -344,7 +345,7 @@ impl Compiler {
     }
 
     fn variable(&mut self, can_assign: bool) {
-        self.named_variable(Rc::clone(&self.parser.previous), can_assign);
+        self.named_variable(Rc::clone(&self.previous), can_assign);
     }
 
     fn named_variable(&mut self, name: Rc<Token>, can_assign: bool) {
@@ -387,12 +388,12 @@ impl Compiler {
     }
 
     fn literal(&mut self) {
-        match self.parser.previous_type() {
+        match self.previous.typ {
             TokenType::True => self.emit_byte(OpCode::True),
             TokenType::False => self.emit_byte(OpCode::False),
             TokenType::Nil => self.emit_byte(OpCode::Nil),
             _ => {
-                let token = Rc::clone(&self.parser.previous);
+                let token = Rc::clone(&self.previous);
                 let msg = format!("Literal op code should be unreachable for {}", &token.typ);
                 self.error(&msg, &token)
             }
@@ -447,12 +448,12 @@ impl Compiler {
     }
 
     fn emit_bytes(&mut self, first: OpCode, second: OpCode) {
-        self.chunk.write(first, self.parser.previous.line);
-        self.chunk.write(second, self.parser.previous.line);
+        self.chunk.write(first, self.previous.line);
+        self.chunk.write(second, self.previous.line);
     }
 
     fn emit_byte(&mut self, byte: OpCode) {
-        self.chunk.write(byte, self.parser.previous.line);
+        self.chunk.write(byte, self.previous.line);
     }
 
     fn make_constant(&mut self, value: Rc<Value>) -> usize {
@@ -469,17 +470,17 @@ impl Compiler {
     }
 
     fn check(&self, typ: TokenType) -> bool {
-        self.parser.current_type() == typ
+        self.current.typ == typ
     }
 
     fn synchronize(&mut self) {
         self.panic_mode = false;
-        while self.parser.current_type() != TokenType::Eof {
-            if self.parser.previous_type() == TokenType::SemiColon {
+        while self.current.typ != TokenType::Eof {
+            if self.previous.typ == TokenType::SemiColon {
                 return;
             }
 
-            match self.parser.current_type() {
+            match self.current.typ {
                 TokenType::Class
                 | TokenType::Fun
                 | TokenType::Var
