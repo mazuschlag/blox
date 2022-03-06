@@ -13,9 +13,9 @@ pub struct Local {
 impl Local {
     pub fn new(name: Rc<Token>, dec_type: TokenType) -> Local {
         Local {
-            name: name,
+            name,
             depth: -1,
-            dec_type: dec_type,
+            dec_type,
         }
     }
 }

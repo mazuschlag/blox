@@ -67,7 +67,7 @@ impl Compiler {
     fn end_compiler(mut self) -> Result<Compiler, ErrCode> {
         self.consume(TokenType::Eof, "Expect end of expression");
         if self.had_error {
-            return Err(ErrCode::CompileError);
+            return Err(ErrCode::Compile);
         }
 
         if DEBUG_PRINT_CODE {
@@ -105,7 +105,7 @@ impl Compiler {
             self.synchronize();
         }
     }
-    
+
     fn val_declaration(&mut self) {
         let global = self.parse_variable("Expect variable name.", TokenType::Val);
         self.parse_variable_expression(global);
@@ -277,7 +277,7 @@ impl Compiler {
         match self.chunk.find_identifier(&lexeme) {
             Some((index, value)) => match *value {
                 Value::ValIdent(_) => (index, TokenType::Val),
-                _ => (index, TokenType::Var)
+                _ => (index, TokenType::Var),
             },
             None => {
                 let value = match self.declaration_start {
@@ -285,7 +285,7 @@ impl Compiler {
                     _ => Rc::new(Value::VarIdent(lexeme)),
                 };
                 (self.make_constant(value), self.declaration_start)
-            },
+            }
         }
     }
 
@@ -308,7 +308,7 @@ impl Compiler {
             TokenType::GreaterEqual => self.emit_bytes(OpCode::Less, OpCode::Not),
             TokenType::Less => self.emit_byte(OpCode::Less),
             TokenType::LessEqual => self.emit_bytes(OpCode::Greater, OpCode::Not),
-            _ => return,
+            _ => (),
         };
     }
 
@@ -318,7 +318,7 @@ impl Compiler {
         match operator_type {
             TokenType::Minus => self.emit_byte(OpCode::Negate),
             TokenType::Bang => self.emit_byte(OpCode::Not),
-            _ => return,
+            _ => (),
         };
     }
 
@@ -331,10 +331,7 @@ impl Compiler {
     }
 
     fn string(&mut self) {
-        let next_obj = match &self.objects {
-            Some(obj) => Some(Rc::clone(obj)),
-            None => None,
-        };
+        let next_obj = self.objects.as_ref().map(Rc::clone);
         let string = Rc::new(Value::SourceStr(SourceStr::new(
             self.previous.start,
             self.previous.length,
@@ -359,7 +356,10 @@ impl Compiler {
             }
         };
 
-        if dec_type == TokenType::Val && self.declaration_start != TokenType::Val && self.check(TokenType::Equal) {
+        if dec_type == TokenType::Val
+            && self.declaration_start != TokenType::Val
+            && self.check(TokenType::Equal)
+        {
             self.error("Cannot reassign to value.", &variable);
         }
 

@@ -19,17 +19,11 @@ impl Value {
     }
 
     fn is_bool(&self) -> bool {
-        match self {
-            Value::Bool(_) => true,
-            _ => false,
-        }
+        matches!(self, Value::Bool(_))
     }
 
     fn as_bool(&self) -> bool {
-        match self {
-            Value::Bool(false) | Value::Nil => false,
-            _ => true,
-        }
+        matches!(self, Value::Bool(false) | Value::Nil)
     }
 }
 

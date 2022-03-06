@@ -92,7 +92,7 @@ impl Scanner {
     }
 
     pub fn lexeme_at(&self, start: usize, length: usize) -> &[char] {
-        return &self.source[start..(start + length)];
+        &self.source[start..(start + length)]
     }
 
     fn skip_whitespace_and_comments(&mut self) {
@@ -185,7 +185,7 @@ impl Scanner {
 
     fn advance(&mut self) -> char {
         self.current += 1;
-        return self.source[self.current - 1];
+        self.source[self.current - 1]
     }
 
     fn check(&mut self, expected: char) -> bool {
@@ -246,8 +246,10 @@ impl Scanner {
             's' => self.check_keyword(1, 4, "uper", TokenType::Super),
             'w' => self.check_keyword(1, 4, "hile", TokenType::While),
             'v' => {
-
-                if self.current - self.start == 1 || self.source[self.start + 1] != 'a' || self.current - self.start == 2 {
+                if self.current - self.start == 1
+                    || self.source[self.start + 1] != 'a'
+                    || self.current - self.start == 2
+                {
                     return TokenType::Identifier;
                 }
 
@@ -260,7 +262,7 @@ impl Scanner {
                 }
 
                 TokenType::Identifier
-            },
+            }
             'f' => {
                 if self.current - self.start == 1 {
                     return TokenType::Identifier;
@@ -290,7 +292,7 @@ impl Scanner {
         if self.current - self.start == start + length {
             let source_value = &self.source[self.start + 1..self.current];
             let rest_value: Vec<char> = rest.chars().collect();
-            if source_value == &rest_value {
+            if source_value == rest_value {
                 return typ;
             }
         }

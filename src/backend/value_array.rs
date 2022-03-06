@@ -25,7 +25,7 @@ impl ValueArray {
         Rc::clone(&self.values[index])
     }
 
-    pub fn find_identifier(&self, query: &String) -> Option<(usize, Rc<Value>)> {
+    pub fn find_identifier(&self, query: &str) -> Option<(usize, Rc<Value>)> {
         for (index, constant) in self.values.iter().enumerate() {
             let value = Rc::clone(constant);
             match value.borrow() {
@@ -33,12 +33,12 @@ impl ValueArray {
                     if name == query {
                         return Some((index, value));
                     }
-                },
+                }
                 Value::VarIdent(name) => {
                     if name == query {
                         return Some((index, value));
                     }
-                },
+                }
                 _ => (),
             }
         }

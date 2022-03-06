@@ -20,16 +20,16 @@ fn main() {
     let result = match args.len() {
         1 => vm.repl(),
         2 => vm.run_file(&args[1]),
-        _ => Err(ErrCode::IoError(String::from("Usage: blox [path]"))),
+        _ => Err(ErrCode::Io(String::from("Usage: blox [path]"))),
     };
 
     match result {
-        Err(ErrCode::CompileError) => process::exit(65),
-        Err(ErrCode::RuntimeError(e)) => {
+        Err(ErrCode::Compile) => process::exit(65),
+        Err(ErrCode::Runtime(e)) => {
             eprintln!("{}", e);
             process::exit(70);
         }
-        Err(ErrCode::IoError(e)) => {
+        Err(ErrCode::Io(e)) => {
             eprintln!("{}", e);
             process::exit(74);
         }
