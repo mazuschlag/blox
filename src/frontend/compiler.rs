@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::mem;
 use std::rc::Rc;
 
 use crate::backend::chunk::Chunk;
@@ -19,14 +19,14 @@ pub struct Compiler {
     pub scanner: Scanner,
     pub chunk: Chunk,
     pub objects: Option<Rc<Obj>>,
-    locals: Vec<Rc<RefCell<Local>>>,
+    locals: Vec<Local>,
     local_count: usize,
     scope_depth: usize,
     panic_mode: bool,
     had_error: bool,
     declaration_start: TokenType,
-    current: Rc<Token>,
-    previous: Rc<Token>,
+    current: Token,
+    previous: Token,
 }
 
 impl Compiler {
@@ -41,8 +41,8 @@ impl Compiler {
             panic_mode: false,
             had_error: false,
             declaration_start: TokenType::None,
-            current: Rc::new(Token::new(TokenType::None, 0, 0, 0, String::new())),
-            previous: Rc::new(Token::new(TokenType::None, 0, 0, 0, String::new())),
+            current: Token::empty(),
+            previous: Token::empty(),
         }
     }
 
@@ -51,6 +51,7 @@ impl Compiler {
         while !self.match_and_advance(TokenType::Eof) {
             self.declaration();
         }
+
         self.end_compiler()
     }
 
@@ -60,8 +61,7 @@ impl Compiler {
             return;
         }
 
-        let token = Rc::clone(&self.current);
-        self.error(msg, &token);
+        self.error(msg, self.current.start, self.current.length, self.current.typ, self.current.line);
     }
 
     fn end_compiler(mut self) -> Result<Compiler, ErrCode> {
@@ -79,14 +79,17 @@ impl Compiler {
 
     fn advance(&mut self) {
         if self.current.typ != TokenType::Eof {
-            self.previous = Rc::clone(&self.current);
+            self.previous = mem::replace(&mut self.current, Token::empty());
             loop {
-                self.current = Rc::new(self.scanner.scan_token());
-                if self.current.typ != TokenType::Error {
-                    break;
-                }
-                let token = Rc::clone(&self.current);
-                self.error(&token.message, &token);
+                match self.scanner.scan_token() {
+                    Ok(token) => {
+                        self.current = token;
+                        return;
+                    }
+                    Err(token) => {
+                        self.error(&token.message, token.start, token.length, token.typ, token.line);
+                    }
+                };
             }
         }
     }
@@ -162,7 +165,7 @@ impl Compiler {
         self.scope_depth -= 1;
 
         while self.local_count > 0
-            && self.locals[self.local_count - 1].borrow().depth > self.scope_depth as i32
+            && self.locals[self.local_count - 1].depth > self.scope_depth as i32
         {
             self.emit_byte(OpCode::Pop);
             self.local_count -= 1;
@@ -192,8 +195,7 @@ impl Compiler {
         match prefix_rule {
             Some(rule) => rule(self),
             None => {
-                let token = Rc::clone(&self.previous);
-                self.error("Expect expression", &token)
+                self.error("Expect expression", self.previous.start, self.previous.length, self.previous.typ, self.previous.line);
             }
         }
 
@@ -205,43 +207,45 @@ impl Compiler {
         }
 
         if !can_assign && self.match_and_advance(TokenType::Equal) {
-            let token = Rc::clone(&self.previous);
-            self.error("Invalid assignment target", &token)
+            self.error("Invalid assignment target", self.previous.start, self.previous.length, self.previous.typ, self.previous.line);
         }
     }
 
     fn parse_variable(&mut self, error_msg: &str, variable_type: TokenType) -> usize {
         self.consume(TokenType::Identifier, error_msg);
-        self.declare_variable(variable_type);
-        if self.scope_depth > 0 {
+        if self.declare_local_variable(variable_type) {
             return 0;
         }
 
-        let (index, _) = self.identifier_constant(Rc::clone(&self.previous));
+        let (index, _) = self.identifier_constant();
         index
     }
 
-    fn declare_variable(&mut self, variable_type: TokenType) {
+    fn declare_local_variable(&mut self, variable_type: TokenType) -> bool {
         if self.scope_depth == 0 {
-            return;
+            return false;
         }
 
-        let name = Rc::clone(&self.previous);
+        let name = mem::replace(&mut self.previous, Token::empty());
         for i in (0..self.local_count).rev() {
-            let local = Rc::clone(&self.locals[i]);
-            if local.borrow().depth != -1 && local.borrow().depth < self.scope_depth as i32 {
+            let local = &self.locals[i];
+            if local.depth != -1 && local.depth < self.scope_depth as i32 {
                 break;
             }
 
-            if self.identifiers_equal(&local.borrow().name, &name) {
+            if self.identifiers_equal(&local.name, &name) {
                 self.error(
                     "Already a variable with this name in this scope.",
-                    &local.borrow().name,
+                    local.name.start,
+                    local.name.length,
+                    local.name.typ,
+                    local.name.line
                 );
             }
         }
 
         self.add_local(name, variable_type);
+        true
     }
 
     fn identifiers_equal(&self, a: &Token, b: &Token) -> bool {
@@ -252,8 +256,8 @@ impl Compiler {
         self.scanner.lexeme(a.start, a.length) == self.scanner.lexeme(b.start, b.length)
     }
 
-    fn add_local(&mut self, name: Rc<Token>, variable_type: TokenType) {
-        let local = Rc::new(RefCell::new(Local::new(name, variable_type)));
+    fn add_local(&mut self, name: Token, variable_type: TokenType) {
+        let local = Local::new(name, variable_type);
         self.locals.push(local);
         self.local_count += 1;
     }
@@ -268,12 +272,11 @@ impl Compiler {
     }
 
     fn mark_initialized(&mut self) {
-        let local = Rc::clone(&self.locals[self.local_count - 1]);
-        local.borrow_mut().depth = self.scope_depth as i32;
+        self.locals[self.local_count - 1].depth = self.scope_depth as i32;
     }
 
-    fn identifier_constant(&mut self, name: Rc<Token>) -> (usize, TokenType) {
-        let lexeme = self.scanner.lexeme(name.start, name.length);
+    fn identifier_constant(&mut self) -> (usize, TokenType) {
+        let lexeme = self.scanner.lexeme(self.previous.start, self.previous.length);
         match self.chunk.find_identifier(&lexeme) {
             Some((index, value)) => match *value {
                 Value::ValIdent(_) => (index, TokenType::Val),
@@ -342,16 +345,15 @@ impl Compiler {
     }
 
     fn variable(&mut self, can_assign: bool) {
-        self.named_variable(Rc::clone(&self.previous), can_assign);
+        self.named_variable(can_assign);
     }
 
-    fn named_variable(&mut self, name: Rc<Token>, can_assign: bool) {
-        let variable = Rc::clone(&name);
-        let arg = self.resolve_local(&variable);
+    fn named_variable(&mut self, can_assign: bool) {
+        let arg = self.resolve_local();
         let (get_op, set_op, dec_type) = match arg {
             Some((index, dec_type)) => (OpCode::GetLocal(index), OpCode::SetLocal(index), dec_type),
             None => {
-                let (index, dec_type) = self.identifier_constant(name);
+                let (index, dec_type) = self.identifier_constant();
                 (OpCode::GetGlobal(index), OpCode::SetGlobal(index), dec_type)
             }
         };
@@ -360,7 +362,7 @@ impl Compiler {
             && self.declaration_start != TokenType::Val
             && self.check(TokenType::Equal)
         {
-            self.error("Cannot reassign to value.", &variable);
+            self.error("Cannot reassign to value.", self.previous.start, self.previous.length, self.previous.typ, self.previous.line);
         }
 
         if can_assign && self.match_and_advance(TokenType::Equal) {
@@ -372,15 +374,14 @@ impl Compiler {
         self.emit_byte(get_op);
     }
 
-    fn resolve_local(&mut self, name: &Token) -> Option<(usize, TokenType)> {
+    fn resolve_local(&mut self) -> Option<(usize, TokenType)> {
         for i in (0..self.local_count).rev() {
-            let local = Rc::clone(&self.locals[i]);
-            if self.identifiers_equal(&local.borrow().name, name) {
-                if local.borrow().depth == -1 {
-                    self.error("Can't read local variable in its own initializer.", name);
+            if self.identifiers_equal(&self.locals[i].name, &self.previous) {
+                if self.locals[i].depth == -1 {
+                    self.error("Can't read local variable in its own initializer.", self.previous.start, self.previous.length, self.previous.typ, self.previous.line);
                 }
 
-                return Some((i, (local.borrow().dec_type)));
+                return Some((i, (self.locals[i].dec_type)));
             }
         }
 
@@ -393,9 +394,8 @@ impl Compiler {
             TokenType::False => self.emit_byte(OpCode::False),
             TokenType::Nil => self.emit_byte(OpCode::Nil),
             _ => {
-                let token = Rc::clone(&self.previous);
-                let msg = format!("Literal op code should be unreachable for {}", &token.typ);
-                self.error(&msg, &token)
+                let msg = format!("Literal op code should be unreachable for {}", self.previous.typ);
+                self.error(&msg, self.previous.start, self.previous.length, self.previous.typ, self.previous.line);
             }
         }
     }
@@ -495,7 +495,7 @@ impl Compiler {
         }
     }
 
-    fn error(&mut self, msg: &str, token: &Token) {
+    fn error(&mut self, msg: &str, start: usize, len: usize, typ: TokenType, line: usize) {
         if self.panic_mode {
             return;
         }
@@ -503,15 +503,15 @@ impl Compiler {
         self.panic_mode = true;
         self.had_error = true;
 
-        let lexeme = self.scanner.lexeme(token.start, token.length);
-        self.error_at(token, lexeme, msg)
+        let lexeme = self.scanner.lexeme(start, len);
+        Self::error_at(lexeme, msg, typ, line)
     }
 
-    fn error_at(&self, token: &Token, lexeme: String, msg: &str) {
-        match token.typ {
-            TokenType::Eof => println!("[line {}] Error at end: {}", token.line, msg),
-            TokenType::Error => println!("[line {}] Error: {}", token.line, msg),
-            _ => println!("[line {}] Error at '{}': {}", token.line, lexeme, msg),
+    fn error_at(lexeme: String, msg: &str, typ: TokenType, line: usize) {
+        match typ {
+            TokenType::Eof => println!("[line {}] Error at end: {}", line, msg),
+            TokenType::Error => println!("[line {}] Error: {}", line, msg),
+            _ => println!("[line {}] Error at '{}': {}", line, lexeme, msg),
         };
     }
 }

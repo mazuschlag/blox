@@ -1,6 +1,6 @@
 use super::token_type::TokenType;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
     pub typ: TokenType,
     pub start: usize,
@@ -18,5 +18,9 @@ impl Token {
             line,
             message,
         }
+    }
+
+    pub fn empty() -> Self {
+        Token::new(TokenType::None, 0, 0, 0, String::new())
     }
 }

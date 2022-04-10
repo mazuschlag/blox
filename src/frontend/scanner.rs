@@ -21,42 +21,42 @@ impl Scanner {
         }
     }
 
-    pub fn scan_token(&mut self) -> Token {
+    pub fn scan_token(&mut self) -> Result<Token, Token> {
         self.skip_whitespace_and_comments();
 
         self.start = self.current;
         if self.is_at_end() {
-            return self.make_token(TokenType::Eof);
+            return Ok(self.make_token(TokenType::Eof));
         }
 
         let c = self.advance();
         if c.is_alphabetic() {
-            return self.identifier_token();
+            return Ok(self.identifier_token());
         }
 
         if c.is_digit(10) {
-            return self.number_token();
+            return Ok(self.number_token());
         }
 
         match c {
-            '(' => self.make_token(TokenType::LeftParen),
-            ')' => self.make_token(TokenType::RightParen),
-            '{' => self.make_token(TokenType::LeftBrace),
-            '}' => self.make_token(TokenType::RightBrace),
-            ';' => self.make_token(TokenType::SemiColon),
-            ',' => self.make_token(TokenType::Comma),
-            '.' => self.make_token(TokenType::Dot),
-            '-' => self.make_token(TokenType::Minus),
-            '+' => self.make_token(TokenType::Plus),
-            '/' => self.make_token(TokenType::Slash),
-            '*' => self.make_token(TokenType::Star),
+            '(' => Ok(self.make_token(TokenType::LeftParen)),
+            ')' => Ok(self.make_token(TokenType::RightParen)),
+            '{' => Ok(self.make_token(TokenType::LeftBrace)),
+            '}' => Ok(self.make_token(TokenType::RightBrace)),
+            ';' => Ok(self.make_token(TokenType::SemiColon)),
+            ',' => Ok(self.make_token(TokenType::Comma)),
+            '.' => Ok(self.make_token(TokenType::Dot)),
+            '-' => Ok(self.make_token(TokenType::Minus)),
+            '+' => Ok(self.make_token(TokenType::Plus)),
+            '/' => Ok(self.make_token(TokenType::Slash)),
+            '*' => Ok(self.make_token(TokenType::Star)),
             '!' => {
                 let typ = if self.check('=') {
                     TokenType::BangEqual
                 } else {
                     TokenType::Bang
                 };
-                self.make_token(typ)
+                Ok(self.make_token(typ))
             }
             '=' => {
                 let typ = if self.check('=') {
@@ -64,7 +64,7 @@ impl Scanner {
                 } else {
                     TokenType::Equal
                 };
-                self.make_token(typ)
+                Ok(self.make_token(typ))
             }
             '<' => {
                 let typ = if self.check('=') {
@@ -72,7 +72,7 @@ impl Scanner {
                 } else {
                     TokenType::Less
                 };
-                self.make_token(typ)
+                Ok(self.make_token(typ))
             }
             '>' => {
                 let typ = if self.check('=') {
@@ -80,10 +80,10 @@ impl Scanner {
                 } else {
                     TokenType::Greater
                 };
-                self.make_token(typ)
+                Ok(self.make_token(typ))
             }
-            '"' => self.string_token(),
-            _ => self.error_token("Unexpected character."),
+            '"' => Ok(self.string_token()),
+            _ => Err(self.error_token("Unexpected character.")),
         }
     }
 
