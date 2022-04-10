@@ -228,18 +228,17 @@ impl Compiler {
 
         let name = mem::replace(&mut self.previous, Token::empty());
         for i in (0..self.local_count).rev() {
-            let local = &self.locals[i];
-            if local.depth != -1 && local.depth < self.scope_depth as i32 {
+            if self.locals[i].depth != -1 && self.locals[i].depth < self.scope_depth as i32 {
                 break;
             }
 
-            if self.identifiers_equal(&local.name, &name) {
+            if self.identifiers_equal(&self.locals[i].name, &name) {
                 self.error(
                     "Already a variable with this name in this scope.",
-                    local.name.start,
-                    local.name.length,
-                    local.name.typ,
-                    local.name.line
+                    self.locals[i].name.start,
+                    self.locals[i].name.length,
+                    self.locals[i].name.typ,
+                    self.locals[i].name.line
                 );
             }
         }
@@ -253,7 +252,8 @@ impl Compiler {
             return false;
         }
 
-        self.scanner.lexeme(a.start, a.length) == self.scanner.lexeme(b.start, b.length)
+        let res = self.scanner.lexeme(a.start, a.length) == self.scanner.lexeme(b.start, b.length);
+        res
     }
 
     fn add_local(&mut self, name: Token, variable_type: TokenType) {
