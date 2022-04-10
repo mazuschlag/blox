@@ -61,7 +61,13 @@ impl Compiler {
             return;
         }
 
-        self.error(msg, self.current.start, self.current.length, self.current.typ, self.current.line);
+        self.error(
+            msg,
+            self.current.start,
+            self.current.length,
+            self.current.typ,
+            self.current.line,
+        );
     }
 
     fn end_compiler(mut self) -> Result<Compiler, ErrCode> {
@@ -87,7 +93,13 @@ impl Compiler {
                         return;
                     }
                     Err(token) => {
-                        self.error(&token.message, token.start, token.length, token.typ, token.line);
+                        self.error(
+                            &token.message,
+                            token.start,
+                            token.length,
+                            token.typ,
+                            token.line,
+                        );
                     }
                 };
             }
@@ -195,7 +207,13 @@ impl Compiler {
         match prefix_rule {
             Some(rule) => rule(self),
             None => {
-                self.error("Expect expression", self.previous.start, self.previous.length, self.previous.typ, self.previous.line);
+                self.error(
+                    "Expect expression",
+                    self.previous.start,
+                    self.previous.length,
+                    self.previous.typ,
+                    self.previous.line,
+                );
             }
         }
 
@@ -207,7 +225,13 @@ impl Compiler {
         }
 
         if !can_assign && self.match_and_advance(TokenType::Equal) {
-            self.error("Invalid assignment target", self.previous.start, self.previous.length, self.previous.typ, self.previous.line);
+            self.error(
+                "Invalid assignment target",
+                self.previous.start,
+                self.previous.length,
+                self.previous.typ,
+                self.previous.line,
+            );
         }
     }
 
@@ -238,7 +262,7 @@ impl Compiler {
                     self.locals[i].name.start,
                     self.locals[i].name.length,
                     self.locals[i].name.typ,
-                    self.locals[i].name.line
+                    self.locals[i].name.line,
                 );
             }
         }
@@ -276,7 +300,9 @@ impl Compiler {
     }
 
     fn identifier_constant(&mut self) -> (usize, TokenType) {
-        let lexeme = self.scanner.lexeme(self.previous.start, self.previous.length);
+        let lexeme = self
+            .scanner
+            .lexeme(self.previous.start, self.previous.length);
         match self.chunk.find_identifier(&lexeme) {
             Some((index, value)) => match *value {
                 Value::ValIdent(_) => (index, TokenType::Val),
@@ -362,7 +388,13 @@ impl Compiler {
             && self.declaration_start != TokenType::Val
             && self.check(TokenType::Equal)
         {
-            self.error("Cannot reassign to value.", self.previous.start, self.previous.length, self.previous.typ, self.previous.line);
+            self.error(
+                "Cannot reassign to value.",
+                self.previous.start,
+                self.previous.length,
+                self.previous.typ,
+                self.previous.line,
+            );
         }
 
         if can_assign && self.match_and_advance(TokenType::Equal) {
@@ -378,7 +410,13 @@ impl Compiler {
         for i in (0..self.local_count).rev() {
             if self.identifiers_equal(&self.locals[i].name, &self.previous) {
                 if self.locals[i].depth == -1 {
-                    self.error("Can't read local variable in its own initializer.", self.previous.start, self.previous.length, self.previous.typ, self.previous.line);
+                    self.error(
+                        "Can't read local variable in its own initializer.",
+                        self.previous.start,
+                        self.previous.length,
+                        self.previous.typ,
+                        self.previous.line,
+                    );
                 }
 
                 return Some((i, (self.locals[i].dec_type)));
@@ -394,8 +432,17 @@ impl Compiler {
             TokenType::False => self.emit_byte(OpCode::False),
             TokenType::Nil => self.emit_byte(OpCode::Nil),
             _ => {
-                let msg = format!("Literal op code should be unreachable for {}", self.previous.typ);
-                self.error(&msg, self.previous.start, self.previous.length, self.previous.typ, self.previous.line);
+                let msg = format!(
+                    "Literal op code should be unreachable for {}",
+                    self.previous.typ
+                );
+                self.error(
+                    &msg,
+                    self.previous.start,
+                    self.previous.length,
+                    self.previous.typ,
+                    self.previous.line,
+                );
             }
         }
     }
