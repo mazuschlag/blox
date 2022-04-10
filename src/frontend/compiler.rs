@@ -18,7 +18,7 @@ use super::token_type::TokenType;
 pub struct Compiler {
     pub scanner: Scanner,
     pub chunk: Chunk,
-    pub objects: Option<Rc<Obj>>,
+    pub objects: Option<Box<Obj>>,
     locals: Vec<Local>,
     local_count: usize,
     scope_depth: usize,
@@ -360,14 +360,14 @@ impl Compiler {
     }
 
     fn string(&mut self) {
-        let next_obj = self.objects.as_ref().map(Rc::clone);
+        let next_obj = self.objects.take();
         let string = Rc::new(Value::SourceStr(SourceStr::new(
             self.previous.start,
             self.previous.length,
             Rc::clone(&self.scanner.source),
         )));
         self.emit_constant(Rc::clone(&string));
-        self.objects = Some(Rc::new(Obj::new(string, next_obj)));
+        self.objects = Some(Box::new(Obj::new(string, next_obj)));
     }
 
     fn variable(&mut self, can_assign: bool) {

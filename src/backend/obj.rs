@@ -5,27 +5,27 @@ use super::value::Value;
 
 pub struct Obj {
     pub value: Rc<Value>,
-    pub next: Option<Rc<Obj>>,
+    pub next: Option<Box<Obj>>,
 }
 
 impl Obj {
-    pub fn new(value: Rc<Value>, next: Option<Rc<Obj>>) -> Self {
+    pub fn new(value: Rc<Value>, next: Option<Box<Obj>>) -> Self {
         Self { value, next }
     }
 
-    pub fn debug_value(&self) -> &Value {
+    pub fn peek(&self) -> &Value {
         &self.value
     }
 
-    pub fn next_debug_value(&self) -> Option<&Value> {
+    pub fn peek_next(&self) -> Option<&Value> {
         match &self.next {
-            Some(obj) => Some(obj.debug_value()),
+            Some(obj) => Some(obj.peek()),
             _ => None,
         }
     }
 
     #[allow(dead_code)]
-    pub fn free(self) -> Option<Rc<Obj>> {
+    pub fn free(self) -> Option<Box<Obj>> {
         self.next
     }
 }
@@ -34,7 +34,7 @@ impl fmt::Debug for Obj {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Obj")
             .field("value", &self.value)
-            .field("next", &self.next_debug_value())
+            .field("next", &self.peek_next())
             .finish()
     }
 }

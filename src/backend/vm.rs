@@ -17,7 +17,7 @@ use super::value::Value;
 pub struct Vm {
     ip: usize,
     stack: Vec<Rc<Value>>,
-    objects: Option<Rc<Obj>>,
+    objects: Option<Box<Obj>>,
     globals: HashMap<String, Rc<Value>>,
 }
 
@@ -269,11 +269,11 @@ impl Vm {
     }
 
     fn concat_strings(&mut self, a: &str, b: &str) {
-        let next_obj = self.objects.as_ref().map(Rc::clone);
+        let next_obj = self.objects.take();
 
         let string = Rc::new(Value::Str(format!("{}{}", a, b)));
         self.stack.push(Rc::clone(&string));
-        self.objects = Some(Rc::new(Obj::new(string, next_obj)));
+        self.objects = Some(Box::new(Obj::new(string, next_obj)));
     }
 
     fn is_falsey(&mut self) -> Result<bool, String> {
