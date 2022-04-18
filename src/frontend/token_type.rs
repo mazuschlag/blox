@@ -61,6 +61,7 @@ impl TokenType {
             Self::Greater | Self::GreaterEqual | Self::Less | Self::LessEqual => {
                 Precedence::Comparison
             }
+            Self::And => Precedence::And,
             _ => Precedence::None,
         }
     }

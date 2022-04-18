@@ -310,6 +310,13 @@ impl Compiler {
         self.local_count += 1;
     }
 
+    fn and(&mut self) {
+        let end_jump = self.emit_jump(OpCode::JumpIfFalse(0));
+        self.emit_byte(OpCode::Pop);
+        self.parse_precedence(Precedence::And);
+        self.patch_jump(end_jump, true);
+    }
+
     fn define_variable(&mut self, global: usize) {
         if self.scope_depth > 0 {
             self.mark_initialized();
@@ -492,7 +499,7 @@ impl Compiler {
         }
     }
 
-    fn infix_rule(&mut self, typ: TokenType) -> Option<fn(&mut Compiler)> {
+    fn infix_rule(&mut self, typ: TokenType) -> Option<Box<dyn Fn(&mut Compiler)>> {
         match typ {
             TokenType::Minus
             | TokenType::Plus
@@ -503,7 +510,8 @@ impl Compiler {
             | TokenType::Greater
             | TokenType::GreaterEqual
             | TokenType::Less
-            | TokenType::LessEqual => Some(|compiler| compiler.binary()),
+            | TokenType::LessEqual => Some(Box::new(|compiler: &mut Compiler| compiler.binary())),
+            TokenType::And => Some(Box::new(|compiler: &mut Compiler| compiler.and())),
             _ => None,
         }
     }
