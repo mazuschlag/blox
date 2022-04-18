@@ -23,6 +23,7 @@ pub enum OpCode {
     SetGlobal(usize),
     GetLocal(usize),
     SetLocal(usize),
+    JumpIfFalse(usize),
 }
 
 impl fmt::Display for OpCode {
@@ -32,19 +33,27 @@ impl fmt::Display for OpCode {
                 write!(f, "CONSTANT {number:>width$}", number = index, width = 16)
             }
             Self::DefGlobal(index) => {
-                write!(f, "DEF_GLOBAL {number:>width$}", number = index, width = 16)
+                write!(f, "DEF_GLOBAL {number:>width$}", number = index, width = 14)
             }
             Self::GetGlobal(index) => {
-                write!(f, "GET_GLOBAL {number:>width$}", number = index, width = 16)
+                write!(f, "GET_GLOBAL {number:>width$}", number = index, width = 14)
             }
             Self::SetGlobal(index) => {
-                write!(f, "SET_GLOBAL {number:>width$}", number = index, width = 16)
+                write!(f, "SET_GLOBAL {number:>width$}", number = index, width = 14)
             }
             Self::GetLocal(index) => {
-                write!(f, "GET_LOCAL {number:>width$}", number = index, width = 16)
+                write!(f, "GET_LOCAL {number:>width$}", number = index, width = 15)
             }
             Self::SetLocal(index) => {
-                write!(f, "SET_LOCAL {number:>width$}", number = index, width = 16)
+                write!(f, "SET_LOCAL {number:>width$}", number = index, width = 15)
+            }
+            Self::JumpIfFalse(index) => {
+                write!(
+                    f,
+                    "JUMP_IF_FALSE {number:>width$}",
+                    number = index,
+                    width = 11
+                )
             }
             Self::Return => write!(f, "RETURN"),
             Self::Negate => write!(f, "NEGATE"),

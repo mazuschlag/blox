@@ -73,9 +73,13 @@ impl Chunk {
         let mut current_index = 0;
         let mut line_counter = self.lines[current_index];
         while line_counter <= offset && current_index < self.lines.len() {
-            line_counter += self.lines[line_counter];
+            line_counter += self.lines[current_index];
             current_index += 1;
         }
         current_index + 1
+    }
+
+    pub fn count(&self) -> usize {
+        self.code.len() - 1
     }
 }

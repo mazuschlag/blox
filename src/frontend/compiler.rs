@@ -151,6 +151,11 @@ impl Compiler {
             return;
         }
 
+        if self.match_and_advance(TokenType::If) {
+            self.if_statement();
+            return;
+        }
+
         if self.match_and_advance(TokenType::LeftBrace) {
             self.begin_scope();
             self.block();
@@ -188,6 +193,15 @@ impl Compiler {
         self.expression();
         self.consume(TokenType::SemiColon, "Expect ';' after value.");
         self.emit_byte(OpCode::Print);
+    }
+
+    fn if_statement(&mut self) {
+        self.consume(TokenType::LeftParen, "Expect '(' after 'if'.");
+        self.expression();
+        self.consume(TokenType::RightParen, "Expect ')' after condition.");
+        let then_jump = self.emit_jump(OpCode::JumpIfFalse(0));
+        self.statement();
+        self.patch_jump(then_jump);
     }
 
     fn expression_statement(&mut self) {
@@ -494,9 +508,19 @@ impl Compiler {
         self.emit_byte(OpCode::Constant(index));
     }
 
+    fn patch_jump(&mut self, offset: usize) {
+        let jump = self.chunk.count() - offset;
+        self.chunk.code[offset] = OpCode::JumpIfFalse(jump);
+    }
+
     fn emit_bytes(&mut self, first: OpCode, second: OpCode) {
         self.chunk.write(first, self.previous.line);
         self.chunk.write(second, self.previous.line);
+    }
+
+    fn emit_jump(&mut self, byte: OpCode) -> usize {
+        self.emit_byte(byte);
+        self.chunk.count()
     }
 
     fn emit_byte(&mut self, byte: OpCode) {
@@ -542,7 +566,7 @@ impl Compiler {
         }
     }
 
-    fn error(&mut self, msg: &str, start: usize, len: usize, typ: TokenType, line: usize) {
+    fn error(&mut self, msg: &str, start: usize, length: usize, typ: TokenType, line: usize) {
         if self.panic_mode {
             return;
         }
@@ -550,7 +574,7 @@ impl Compiler {
         self.panic_mode = true;
         self.had_error = true;
 
-        let lexeme = self.scanner.lexeme(start, len);
+        let lexeme = self.scanner.lexeme(start, length);
         Self::error_at(lexeme, msg, typ, line)
     }
 

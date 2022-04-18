@@ -230,6 +230,14 @@ impl Vm {
                     self.stack[slot] = Rc::clone(&self.stack[top]);
                     Ok(())
                 }
+                OpCode::JumpIfFalse(offset) => {
+                    let top = self.stack_top();
+                    if self.stack[top].is_falsey() {
+                        self.ip += offset;
+                    }
+
+                    Ok(())
+                }
             };
 
             if let Err(e) = op_result {

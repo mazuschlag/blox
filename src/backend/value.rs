@@ -15,14 +15,6 @@ pub enum Value {
 
 impl Value {
     pub fn is_falsey(&self) -> bool {
-        *self == Value::Nil || (self.is_bool() && !self.as_bool())
-    }
-
-    fn is_bool(&self) -> bool {
-        matches!(self, Value::Bool(_))
-    }
-
-    fn as_bool(&self) -> bool {
         matches!(self, Value::Bool(false) | Value::Nil)
     }
 }
