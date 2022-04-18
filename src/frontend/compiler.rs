@@ -317,6 +317,16 @@ impl Compiler {
         self.patch_jump(end_jump, true);
     }
 
+    fn or(&mut self) {
+        let else_jump = self.emit_jump(OpCode::JumpIfFalse(0));
+        let end_jump = self.emit_jump(OpCode::Jump(0));
+
+        self.patch_jump(else_jump, true);
+        self.emit_byte(OpCode::Pop);
+        self.parse_precedence(Precedence::Or);
+        self.patch_jump(end_jump, false);
+    }
+
     fn define_variable(&mut self, global: usize) {
         if self.scope_depth > 0 {
             self.mark_initialized();
@@ -512,6 +522,7 @@ impl Compiler {
             | TokenType::Less
             | TokenType::LessEqual => Some(Box::new(|compiler: &mut Compiler| compiler.binary())),
             TokenType::And => Some(Box::new(|compiler: &mut Compiler| compiler.and())),
+            TokenType::Or => Some(Box::new(|compiler: &mut Compiler| compiler.or())),
             _ => None,
         }
     }

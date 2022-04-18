@@ -62,6 +62,7 @@ impl TokenType {
                 Precedence::Comparison
             }
             Self::And => Precedence::And,
+            Self::Or => Precedence::Or,
             _ => Precedence::None,
         }
     }
