@@ -199,9 +199,19 @@ impl Compiler {
         self.consume(TokenType::LeftParen, "Expect '(' after 'if'.");
         self.expression();
         self.consume(TokenType::RightParen, "Expect ')' after condition.");
+
         let then_jump = self.emit_jump(OpCode::JumpIfFalse(0));
+        self.emit_byte(OpCode::Pop);
         self.statement();
-        self.patch_jump(then_jump);
+        let else_jump = self.emit_jump(OpCode::Jump(0));
+        self.patch_jump(then_jump, true);
+
+        self.emit_byte(OpCode::Pop);
+        if self.match_and_advance(TokenType::Else) {
+            self.statement();
+        }
+
+        self.patch_jump(else_jump, false);
     }
 
     fn expression_statement(&mut self) {
@@ -508,9 +518,13 @@ impl Compiler {
         self.emit_byte(OpCode::Constant(index));
     }
 
-    fn patch_jump(&mut self, offset: usize) {
+    fn patch_jump(&mut self, offset: usize, jump_if_false: bool) {
         let jump = self.chunk.count() - offset;
-        self.chunk.code[offset] = OpCode::JumpIfFalse(jump);
+        if jump_if_false {
+            self.chunk.code[offset] = OpCode::JumpIfFalse(jump);
+        } else {
+            self.chunk.code[offset] = OpCode::Jump(jump);
+        }
     }
 
     fn emit_bytes(&mut self, first: OpCode, second: OpCode) {

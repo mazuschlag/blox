@@ -238,6 +238,10 @@ impl Vm {
 
                     Ok(())
                 }
+                OpCode::Jump(offset) => {
+                    self.ip += offset;
+                    Ok(())
+                }
             };
 
             if let Err(e) = op_result {
