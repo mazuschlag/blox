@@ -163,6 +163,11 @@ impl Compiler {
             return;
         }
 
+        if self.match_and_advance(TokenType::For) {
+            self.for_statement();
+            return;
+        }
+
         if self.match_and_advance(TokenType::LeftBrace) {
             self.begin_scope();
             self.block();
@@ -234,6 +239,49 @@ impl Compiler {
 
         self.patch_jump(exit_jump, true);
         self.emit_byte(OpCode::Pop);
+    }
+
+    fn for_statement(&mut self) {
+        self.begin_scope();
+        self.consume(TokenType::LeftParen, "Expect '(' after 'for'.");
+        if self.match_and_advance(TokenType::SemiColon) {
+            // No initializer
+            ();
+        } else if self.match_and_advance(TokenType::Var) {
+            self.var_declaration();
+        } else {
+            self.expression_statement();
+        }
+
+        let mut loop_start = self.chunk.count();
+        let mut exit_jump = None;
+        if !self.match_and_advance(TokenType::SemiColon) {
+            self.expression();
+            self.consume(TokenType::SemiColon, "Expect ';' after loop condition.");
+            exit_jump = Some(self.emit_jump(OpCode::JumpIfFalse(0)));
+            self.emit_byte(OpCode::Pop);
+        }
+
+        if !self.match_and_advance(TokenType::RightParen) {
+            let body_jump = self.emit_jump(OpCode::Jump(0));
+            let increment_start = self.chunk.count();
+            self.expression();
+            self.emit_byte(OpCode::Pop);
+            self.consume(TokenType::RightParen, "Expect ')' after for clauses.");
+
+            self.emit_loop(loop_start);
+            loop_start = increment_start;
+            self.patch_jump(body_jump, false);
+        }
+
+        self.statement();
+        self.emit_loop(loop_start);
+        if let Some(offset) = exit_jump {
+            self.patch_jump(offset, true);
+            self.emit_byte(OpCode::Pop);
+        }
+
+        self.end_scope();
     }
 
     fn expression_statement(&mut self) {
