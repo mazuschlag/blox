@@ -25,6 +25,7 @@ pub enum OpCode {
     SetLocal(usize),
     JumpIfFalse(usize),
     Jump(usize),
+    Loop(usize),
 }
 
 impl fmt::Display for OpCode {
@@ -58,6 +59,9 @@ impl fmt::Display for OpCode {
             }
             Self::Jump(index) => {
                 write!(f, "JUMP {number:>width$}", number = index, width = 20)
+            }
+            Self::Loop(index) => {
+                write!(f, "LOOP {number:>width$}", number = index, width = 20)
             }
             Self::Return => write!(f, "RETURN"),
             Self::Negate => write!(f, "NEGATE"),

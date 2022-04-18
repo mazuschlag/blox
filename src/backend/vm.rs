@@ -174,8 +174,8 @@ impl Vm {
                         )),
                     },
                 ),
-                OpCode::Greater => self.binary_op(|left, right| Value::Bool(left > right)),
-                OpCode::Less => self.binary_op(|left, right| Value::Bool(left < right)),
+                OpCode::Greater => self.binary_op(|right, left| Value::Bool(left > right)),
+                OpCode::Less => self.binary_op(|right, left| Value::Bool(left < right)),
                 OpCode::Print => self.print_value(),
                 OpCode::Pop => match self.stack.pop() {
                     Some(_) => Ok(()),
@@ -240,6 +240,10 @@ impl Vm {
                 }
                 OpCode::Jump(offset) => {
                     self.ip += offset;
+                    Ok(())
+                }
+                OpCode::Loop(offset) => {
+                    self.ip -= offset + 1;
                     Ok(())
                 }
             };

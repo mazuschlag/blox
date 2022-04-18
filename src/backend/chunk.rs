@@ -70,13 +70,13 @@ impl Chunk {
     }
 
     pub fn get_line(&self, offset: usize) -> usize {
-        let mut current_index = 0;
-        let mut line_counter = self.lines[current_index];
+        let mut line_counter = self.lines[0];
+        let mut current_index = 1;
         while line_counter <= offset && current_index < self.lines.len() {
             line_counter += self.lines[current_index];
             current_index += 1;
         }
-        current_index + 1
+        current_index
     }
 
     pub fn count(&self) -> usize {

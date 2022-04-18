@@ -84,25 +84,27 @@ impl Compiler {
     }
 
     fn advance(&mut self) {
-        if self.current.typ != TokenType::Eof {
-            self.previous = mem::replace(&mut self.current, Token::empty());
-            loop {
-                match self.scanner.scan_token() {
-                    Ok(token) => {
-                        self.current = token;
-                        return;
-                    }
-                    Err(token) => {
-                        self.error(
-                            &token.message,
-                            token.start,
-                            token.length,
-                            token.typ,
-                            token.line,
-                        );
-                    }
-                };
-            }
+        if self.current.typ == TokenType::Eof {
+            return;
+        }
+
+        self.previous = mem::replace(&mut self.current, Token::empty());
+        loop {
+            match self.scanner.scan_token() {
+                Ok(token) => {
+                    self.current = token;
+                    return;
+                }
+                Err(token) => {
+                    self.error(
+                        &token.message,
+                        token.start,
+                        token.length,
+                        token.typ,
+                        token.line,
+                    );
+                }
+            };
         }
     }
 
@@ -153,6 +155,11 @@ impl Compiler {
 
         if self.match_and_advance(TokenType::If) {
             self.if_statement();
+            return;
+        }
+
+        if self.match_and_advance(TokenType::While) {
+            self.while_statement();
             return;
         }
 
@@ -212,6 +219,21 @@ impl Compiler {
         }
 
         self.patch_jump(else_jump, false);
+    }
+
+    fn while_statement(&mut self) {
+        let loop_start = self.chunk.count();
+        self.consume(TokenType::LeftParen, "Expect '(' after 'while'.");
+        self.expression();
+        self.consume(TokenType::RightParen, "Expect ')' after condition.");
+
+        let exit_jump = self.emit_jump(OpCode::JumpIfFalse(0));
+        self.emit_byte(OpCode::Pop);
+        self.statement();
+        self.emit_loop(loop_start);
+
+        self.patch_jump(exit_jump, true);
+        self.emit_byte(OpCode::Pop);
     }
 
     fn expression_statement(&mut self) {
@@ -554,6 +576,11 @@ impl Compiler {
     fn emit_jump(&mut self, byte: OpCode) -> usize {
         self.emit_byte(byte);
         self.chunk.count()
+    }
+
+    fn emit_loop(&mut self, loop_start: usize) {
+        let offset = self.chunk.count() - loop_start;
+        self.emit_byte(OpCode::Loop(offset));
     }
 
     fn emit_byte(&mut self, byte: OpCode) {
