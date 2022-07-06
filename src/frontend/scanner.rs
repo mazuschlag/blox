@@ -235,16 +235,16 @@ impl Scanner {
 
     fn identifier_type(&self) -> TokenType {
         match self.source[self.start] {
-            'a' => self.check_keyword(1, 2, "nd", TokenType::And),
-            'c' => self.check_keyword(1, 4, "lass", TokenType::Class),
-            'e' => self.check_keyword(1, 3, "lse", TokenType::Else),
-            'i' => self.check_keyword(1, 1, "f", TokenType::If),
-            'n' => self.check_keyword(1, 2, "il", TokenType::Nil),
-            'o' => self.check_keyword(1, 1, "r", TokenType::Or),
-            'p' => self.check_keyword(1, 4, "rint", TokenType::Print),
-            'r' => self.check_keyword(1, 5, "eturn", TokenType::Return),
-            's' => self.check_keyword(1, 4, "uper", TokenType::Super),
-            'w' => self.check_keyword(1, 4, "hile", TokenType::While),
+            'a' => self.check_keyword("nd", TokenType::And),
+            'c' => self.check_keyword("lass", TokenType::Class),
+            'e' => self.check_keyword("lse", TokenType::Else),
+            'i' => self.check_keyword("f", TokenType::If),
+            'n' => self.check_keyword("il", TokenType::Nil),
+            'o' => self.check_keyword("r", TokenType::Or),
+            'p' => self.check_keyword("rint", TokenType::Print),
+            'r' => self.check_keyword("eturn", TokenType::Return),
+            's' => self.check_keyword("uper", TokenType::Super),
+            'w' => self.check_keyword("hile", TokenType::While),
             'v' => {
                 if self.current - self.start == 1
                     || self.source[self.start + 1] != 'a'
@@ -268,9 +268,9 @@ impl Scanner {
                     return TokenType::Identifier;
                 }
                 match self.source[self.start + 1] {
-                    'a' => self.check_keyword(1, 4, "alse", TokenType::False),
-                    'o' => self.check_keyword(1, 2, "or", TokenType::For),
-                    'u' => self.check_keyword(1, 2, "un", TokenType::Fun),
+                    'a' => self.check_keyword("alse", TokenType::False),
+                    'o' => self.check_keyword("or", TokenType::For),
+                    'u' => self.check_keyword("un", TokenType::Fun),
                     _ => TokenType::Identifier,
                 }
             }
@@ -279,8 +279,8 @@ impl Scanner {
                     return TokenType::Identifier;
                 }
                 match self.source[self.start + 1] {
-                    'h' => self.check_keyword(1, 3, "his", TokenType::This),
-                    'r' => self.check_keyword(1, 3, "rue", TokenType::True),
+                    'h' => self.check_keyword("his", TokenType::This),
+                    'r' => self.check_keyword("rue", TokenType::True),
                     _ => TokenType::Identifier,
                 }
             }
@@ -288,8 +288,8 @@ impl Scanner {
         }
     }
 
-    fn check_keyword(&self, start: usize, length: usize, rest: &str, typ: TokenType) -> TokenType {
-        if self.current - self.start == start + length {
+    fn check_keyword(&self, rest: &str, typ: TokenType) -> TokenType {
+        if self.current - self.start == rest.len() + 1 {
             let source_value = &self.source[self.start + 1..self.current];
             let rest_value: Vec<char> = rest.chars().collect();
             if source_value == rest_value {
