@@ -175,6 +175,11 @@ impl Compiler {
             return;
         }
 
+        if self.match_and_advance(TokenType::Switch) {
+            self.switch_statement();
+            return;
+        }
+
         self.expression_statement();
     }
 
@@ -288,6 +293,43 @@ impl Compiler {
         self.expression();
         self.consume(TokenType::SemiColon, "Expect ';' after expression.");
         self.emit_byte(OpCode::Pop);
+    }
+
+    fn switch_statement(&mut self) {
+        self.consume(TokenType::LeftParen, "Expect '(' after 'switch'.");
+        self.expression();
+        self.consume(TokenType::RightParen, "Expect ')' after expression.");
+        self.consume(TokenType::LeftBrace, "Expect '{' after switch expression.");
+        self.begin_scope();
+        self.case_statement();
+        self.default_statement();
+        self.end_scope();
+        self.consume(TokenType::RightBrace, "Expect '}' after switch block.");
+    }
+
+    fn case_statement(&mut self) {
+        while self.match_and_advance(TokenType::Case) {
+            self.expression();
+            self.consume(TokenType::Colon, "Expect ':' after case expression.");
+            self.begin_scope();
+            while !self.check(TokenType::Case) && !self.check(TokenType::Default) && !self.check(TokenType::RightBrace) {
+                self.declaration();
+            }
+            
+            self.end_scope();
+        }
+    }
+
+    fn default_statement(&mut self) {
+        if self.match_and_advance(TokenType::Default) {
+            self.consume(TokenType::Colon, "Expect ':' after 'default'");
+            self.begin_scope();
+            while !self.check(TokenType::RightBrace) {
+                self.declaration();
+            }
+
+            self.end_scope();
+        }
     }
 
     fn expression(&mut self) {

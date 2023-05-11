@@ -44,6 +44,7 @@ impl Scanner {
             '{' => Ok(self.make_token(TokenType::LeftBrace)),
             '}' => Ok(self.make_token(TokenType::RightBrace)),
             ';' => Ok(self.make_token(TokenType::SemiColon)),
+            ':' => Ok(self.make_token(TokenType::Colon)),
             ',' => Ok(self.make_token(TokenType::Comma)),
             '.' => Ok(self.make_token(TokenType::Dot)),
             '-' => Ok(self.make_token(TokenType::Minus)),
@@ -236,15 +237,36 @@ impl Scanner {
     fn identifier_type(&self) -> TokenType {
         match self.source[self.start] {
             'a' => self.check_keyword("nd", TokenType::And),
-            'c' => self.check_keyword("lass", TokenType::Class),
             'e' => self.check_keyword("lse", TokenType::Else),
             'i' => self.check_keyword("f", TokenType::If),
             'n' => self.check_keyword("il", TokenType::Nil),
             'o' => self.check_keyword("r", TokenType::Or),
             'p' => self.check_keyword("rint", TokenType::Print),
             'r' => self.check_keyword("eturn", TokenType::Return),
-            's' => self.check_keyword("uper", TokenType::Super),
             'w' => self.check_keyword("hile", TokenType::While),
+            'd' => self.check_keyword("efault", TokenType::Default),
+            'c' => {
+                if self.current - self.start == 1 {
+                    return TokenType::Identifier;
+                }
+
+                match self.source[self.start + 1] {
+                    'a' => self.check_keyword("se", TokenType::Case),
+                    'l' => self.check_keyword("ass", TokenType::Class),
+                    _ => TokenType::Identifier,
+                }
+            }
+            's' => {
+                if self.current - self.start == 1 {
+                    return TokenType::Identifier;
+                }
+
+                match self.source[self.start + 1] {
+                    'w' => self.check_keyword("itch", TokenType::Switch),
+                    'u' => self.check_keyword("per", TokenType::Super),
+                    _ => TokenType::Identifier,
+                }
+            }
             'v' => {
                 if self.current - self.start == 1
                     || self.source[self.start + 1] != 'a'
@@ -267,6 +289,7 @@ impl Scanner {
                 if self.current - self.start == 1 {
                     return TokenType::Identifier;
                 }
+
                 match self.source[self.start + 1] {
                     'a' => self.check_keyword("alse", TokenType::False),
                     'o' => self.check_keyword("or", TokenType::For),
@@ -278,6 +301,7 @@ impl Scanner {
                 if self.current - self.start == 1 {
                     return TokenType::Identifier;
                 }
+
                 match self.source[self.start + 1] {
                     'h' => self.check_keyword("his", TokenType::This),
                     'r' => self.check_keyword("rue", TokenType::True),
