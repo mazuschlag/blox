@@ -2,7 +2,7 @@ use std::fmt;
 
 use super::precedence::Precedence;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum TokenType {
     // Single character tokens
     LeftParen,
