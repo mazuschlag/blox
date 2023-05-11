@@ -251,8 +251,8 @@ impl Scanner {
                 }
 
                 match self.source[self.start + 1] {
-                    'a' => self.check_keyword("se", TokenType::Case),
-                    'l' => self.check_keyword("ass", TokenType::Class),
+                    'a' => self.check_keyword("ase", TokenType::Case),
+                    'l' => self.check_keyword("lass", TokenType::Class),
                     _ => TokenType::Identifier,
                 }
             }
@@ -262,8 +262,8 @@ impl Scanner {
                 }
 
                 match self.source[self.start + 1] {
-                    'w' => self.check_keyword("itch", TokenType::Switch),
-                    'u' => self.check_keyword("per", TokenType::Super),
+                    'w' => self.check_keyword("witch", TokenType::Switch),
+                    'u' => self.check_keyword("uper", TokenType::Super),
                     _ => TokenType::Identifier,
                 }
             }

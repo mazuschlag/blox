@@ -301,34 +301,39 @@ impl Compiler {
         self.consume(TokenType::RightParen, "Expect ')' after expression.");
         self.consume(TokenType::LeftBrace, "Expect '{' after switch expression.");
         self.begin_scope();
-        self.case_statement();
-        self.default_statement();
-        self.end_scope();
-        self.consume(TokenType::RightBrace, "Expect '}' after switch block.");
-    }
 
-    fn case_statement(&mut self) {
+        let mut jumps: Vec<usize> = Vec::new();
         while self.match_and_advance(TokenType::Case) {
             self.expression();
             self.consume(TokenType::Colon, "Expect ':' after case expression.");
-            self.begin_scope();
+            self.emit_byte(OpCode::Equal);
+            let jump_if_false = self.emit_jump(OpCode::JumpIfFalse(0));
+            self.emit_byte(OpCode::Pop);
             while !self.check(TokenType::Case) && !self.check(TokenType::Default) && !self.check(TokenType::RightBrace) {
                 self.declaration();
             }
-            
-            self.end_scope();
+
+            self.patch_jump(jump_if_false, true);
+            self.emit_byte(OpCode::Pop);    
+            jumps.push(self.emit_jump(OpCode::Jump(0)));
+            self.emit_byte(OpCode::Pop);
+        }
+
+        self.default_statement();
+        self.end_scope();
+        self.consume(TokenType::RightBrace, "Expect '}' after switch block.");
+        
+        for jump in jumps {
+            self.patch_jump(jump, false);
         }
     }
 
     fn default_statement(&mut self) {
         if self.match_and_advance(TokenType::Default) {
             self.consume(TokenType::Colon, "Expect ':' after 'default'");
-            self.begin_scope();
             while !self.check(TokenType::RightBrace) {
                 self.declaration();
             }
-
-            self.end_scope();
         }
     }
 
