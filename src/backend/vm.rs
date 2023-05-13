@@ -123,9 +123,9 @@ impl Vm {
                         _ => Err(String::from("Operands must be two numbers or two strings")),
                     },
                 ),
-                OpCode::Subtract => self.binary_op(|left, right| Value::Number(left - right)),
-                OpCode::Multiply => self.binary_op(|left, right| Value::Number(left * right)),
-                OpCode::Divide => self.binary_op(|left, right| Value::Number(left / right)),
+                OpCode::Subtract => self.binary_op(|right, left| Value::Number(left - right)),
+                OpCode::Multiply => self.binary_op(|right, left| Value::Number(left * right)),
+                OpCode::Divide => self.binary_op(|right, left| Value::Number(left / right)),
                 OpCode::True => {
                     self.stack.push(Rc::new(Value::Bool(true)));
                     Ok(())
@@ -245,6 +245,65 @@ impl Vm {
                 OpCode::Loop(offset) => {
                     self.ip -= offset + 1;
                     Ok(())
+                }
+                OpCode::Case(offset) => {
+                    let top = self.stack_top();
+                    let below = top - 1;
+                    if self.stack.len() < 2 {
+                        Err(String::from("Not enough values on the stack"))
+                    } else {
+                        match (self.stack[top].borrow(), self.stack[below].borrow()) {
+                            (Value::Number(r), Value::Number(l)) => {
+                                if r != l {
+                                    self.ip += offset;
+                                    self.stack.pop();
+                                }
+
+                                Ok(())
+                            }
+                            (Value::SourceStr(r), Value::SourceStr(l)) => {
+                                if l.to_string() != r.to_string() {
+                                    self.ip += offset;
+                                    self.stack.pop();
+                                }
+
+                                Ok(())
+                            }
+                            (Value::SourceStr(r), Value::Str(l)) => {
+                                if l != &r.to_string() {
+                                    self.ip += offset;
+                                    self.stack.pop();
+                                }
+
+                                Ok(())
+                            }
+                            (Value::Str(r), Value::SourceStr(l)) => {
+                                if &l.to_string() != r {
+                                    self.ip += offset;
+                                    self.stack.pop();
+                                }
+
+                                Ok(())
+                            }
+                            (Value::Str(r), Value::Str(l)) => {
+                                if l != r {
+                                    self.ip += offset;
+                                    self.stack.pop();
+                                }
+
+                                Ok(())
+                            }
+                            (Value::Bool(r), Value::Bool(l)) => {
+                                if l != r {
+                                    self.ip += offset;
+                                    self.stack.pop();
+                                }
+
+                                Ok(())
+                            }
+                            _ => Err(String::from("Mismatched types in case statement"))
+                        }
+                    }
                 }
             };
 

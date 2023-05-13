@@ -1,4 +1,5 @@
 use std::fmt;
+
 #[allow(dead_code)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum OpCode {
@@ -26,6 +27,7 @@ pub enum OpCode {
     JumpIfFalse(usize),
     Jump(usize),
     Loop(usize),
+    Case(usize),
 }
 
 impl fmt::Display for OpCode {
@@ -62,6 +64,9 @@ impl fmt::Display for OpCode {
             }
             Self::Loop(index) => {
                 write!(f, "LOOP {number:>width$}", number = index, width = 20)
+            }
+            Self::Case(index) => {
+                write!(f, "CASE {number:>width$}", number = index, width = 20)
             }
             Self::Return => write!(f, "RETURN"),
             Self::Negate => write!(f, "NEGATE"),

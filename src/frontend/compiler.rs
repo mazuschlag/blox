@@ -221,14 +221,14 @@ impl Compiler {
         self.emit_byte(OpCode::Pop);
         self.statement();
         let else_jump = self.emit_jump(OpCode::Jump(0));
-        self.patch_jump(then_jump, true);
+        self.patch_jump(then_jump);
 
         self.emit_byte(OpCode::Pop);
         if self.match_and_advance(TokenType::Else) {
             self.statement();
         }
 
-        self.patch_jump(else_jump, false);
+        self.patch_jump(else_jump);
     }
 
     fn while_statement(&mut self) {
@@ -242,7 +242,7 @@ impl Compiler {
         self.statement();
         self.emit_loop(loop_start);
 
-        self.patch_jump(exit_jump, true);
+        self.patch_jump(exit_jump);
         self.emit_byte(OpCode::Pop);
     }
 
@@ -276,13 +276,13 @@ impl Compiler {
 
             self.emit_loop(loop_start);
             loop_start = increment_start;
-            self.patch_jump(body_jump, false);
+            self.patch_jump(body_jump);
         }
 
         self.statement();
         self.emit_loop(loop_start);
         if let Some(offset) = exit_jump {
-            self.patch_jump(offset, true);
+            self.patch_jump(offset);
             self.emit_byte(OpCode::Pop);
         }
 
@@ -306,17 +306,16 @@ impl Compiler {
         while self.match_and_advance(TokenType::Case) {
             self.expression();
             self.consume(TokenType::Colon, "Expect ':' after case expression.");
-            self.emit_byte(OpCode::Equal);
-            let jump_if_false = self.emit_jump(OpCode::JumpIfFalse(0));
+            let case_jump = self.emit_jump(OpCode::Case(0));
+            self.emit_byte(OpCode::Pop);
             self.emit_byte(OpCode::Pop);
             while !self.check(TokenType::Case) && !self.check(TokenType::Default) && !self.check(TokenType::RightBrace) {
                 self.declaration();
             }
 
-            self.patch_jump(jump_if_false, true);
-            self.emit_byte(OpCode::Pop);    
             jumps.push(self.emit_jump(OpCode::Jump(0)));
             self.emit_byte(OpCode::Pop);
+            self.patch_jump(case_jump);
         }
 
         self.default_statement();
@@ -324,13 +323,14 @@ impl Compiler {
         self.consume(TokenType::RightBrace, "Expect '}' after switch block.");
         
         for jump in jumps {
-            self.patch_jump(jump, false);
+            self.patch_jump(jump);
         }
     }
 
     fn default_statement(&mut self) {
         if self.match_and_advance(TokenType::Default) {
             self.consume(TokenType::Colon, "Expect ':' after 'default'");
+            self.emit_byte(OpCode::Pop);
             while !self.check(TokenType::RightBrace) {
                 self.declaration();
             }
@@ -431,17 +431,17 @@ impl Compiler {
         let end_jump = self.emit_jump(OpCode::JumpIfFalse(0));
         self.emit_byte(OpCode::Pop);
         self.parse_precedence(Precedence::And);
-        self.patch_jump(end_jump, true);
+        self.patch_jump(end_jump);
     }
 
     fn or(&mut self) {
         let else_jump = self.emit_jump(OpCode::JumpIfFalse(0));
         let end_jump = self.emit_jump(OpCode::Jump(0));
 
-        self.patch_jump(else_jump, true);
+        self.patch_jump(else_jump);
         self.emit_byte(OpCode::Pop);
         self.parse_precedence(Precedence::Or);
-        self.patch_jump(end_jump, false);
+        self.patch_jump(end_jump);
     }
 
     fn define_variable(&mut self, global: usize) {
@@ -654,13 +654,20 @@ impl Compiler {
         self.emit_byte(OpCode::Constant(index));
     }
 
-    fn patch_jump(&mut self, offset: usize, jump_if_false: bool) {
+    fn patch_jump(&mut self, offset: usize) {
         let jump = self.chunk.count() - offset;
-        if jump_if_false {
-            self.chunk.code[offset] = OpCode::JumpIfFalse(jump);
-        } else {
-            self.chunk.code[offset] = OpCode::Jump(jump);
-        }
+        match self.chunk.code[offset] {
+            OpCode::Jump(_) => self.chunk.code[offset] = OpCode::Jump(jump),
+            OpCode::JumpIfFalse(_) => self.chunk.code[offset] = OpCode::JumpIfFalse(jump),
+            OpCode::Case(_) => self.chunk.code[offset] = OpCode::Case(jump),
+            _ => self.error(
+                "Unrecognized jump operation",
+                self.previous.start,
+                self.previous.length,
+                self.previous.typ,
+                self.previous.line,
+            )
+        };
     }
 
     fn emit_bytes(&mut self, first: OpCode, second: OpCode) {
