@@ -7,7 +7,6 @@ use crate::backend::op_code::OpCode;
 use crate::backend::source_str::SourceStr;
 use crate::backend::value::Value;
 use crate::error::codes::ErrCode;
-use crate::DEBUG_PRINT_CODE;
 
 use super::local::Local;
 use super::precedence::Precedence;
@@ -27,10 +26,11 @@ pub struct Compiler {
     declaration_start: TokenType,
     current: Token,
     previous: Token,
+    debug_print_code: bool,
 }
 
 impl Compiler {
-    pub fn new(source: String) -> Self {
+    pub fn new(source: String, debug_print_code: bool) -> Self {
         Self {
             scanner: Scanner::new(source),
             chunk: Chunk::new(),
@@ -43,6 +43,7 @@ impl Compiler {
             declaration_start: TokenType::None,
             current: Token::empty(),
             previous: Token::empty(),
+            debug_print_code,
         }
     }
 
@@ -76,7 +77,7 @@ impl Compiler {
             return Err(ErrCode::Compile);
         }
 
-        if DEBUG_PRINT_CODE {
+        if self.debug_print_code {
             self.chunk.disassemble("code");
         }
 

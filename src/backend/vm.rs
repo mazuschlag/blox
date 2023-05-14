@@ -7,7 +7,6 @@ use std::str;
 
 use crate::error::codes::ErrCode;
 use crate::frontend::compiler::Compiler;
-use crate::DEBUG_TRACE;
 
 use super::chunk::Chunk;
 use super::obj::Obj;
@@ -19,6 +18,8 @@ pub struct Vm {
     stack: Vec<Rc<Value>>,
     objects: Option<Box<Obj>>,
     globals: HashMap<String, Rc<Value>>,
+    debug_print_code: bool,
+    debug_trace: bool,
 }
 
 impl Vm {
@@ -28,6 +29,8 @@ impl Vm {
             stack: Vec::new(),
             objects: None,
             globals: HashMap::new(),
+            debug_print_code: false,
+            debug_trace: false,
         }
     }
 
@@ -60,14 +63,16 @@ impl Vm {
         Ok(())
     }
 
-    pub fn run_file(&mut self, path: &str) -> Result<(), ErrCode> {
+    pub fn run_file(&mut self, path: &str, debug_print_code: bool, debug_trace: bool) -> Result<(), ErrCode> {
+        self.debug_print_code = debug_print_code;
+        self.debug_trace = debug_trace;
         fs::read_to_string(path)
             .map_err(|e| ErrCode::Io(e.to_string()))
             .and_then(|source| self.interpret(source))
     }
 
     pub fn interpret(&mut self, source: String) -> Result<(), ErrCode> {
-        Compiler::new(source).compile().and_then(|compiler| {
+        Compiler::new(source, self.debug_print_code).compile().and_then(|compiler| {
             self.ip = 0;
             self.objects = compiler.objects;
             self.run(compiler.chunk)
@@ -76,7 +81,7 @@ impl Vm {
 
     fn run(&mut self, chunk: Chunk) -> Result<(), ErrCode> {
         while self.ip < chunk.code.len() {
-            if DEBUG_TRACE {
+            if self.debug_trace {
                 self.stack_trace();
                 chunk.disassamble_instruction(self.ip, &chunk.code[self.ip])
             }
