@@ -29,7 +29,7 @@ impl fmt::Display for Value {
             Self::SourceStr(s) => write!(f, "\"{}\"", s),
             Self::VarIdent(s) => write!(f, "<var {}>", s),
             Self::ValIdent(s) => write!(f, "<val {}>", s),
-            Self::FunctionObj(fo) => write!(f, "<fn {}>", fo.name),
+            Self::FunctionObj(fo) => write!(f, "{}", fo),
             Self::Nil => write!(f, "nil"),
         }
     }

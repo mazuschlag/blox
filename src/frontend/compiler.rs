@@ -7,7 +7,7 @@ use crate::{
     backend::chunk::Chunk,
     backend::obj::Obj,
     backend::op_code::OpCode,
-    backend::source_str::SourceStr,
+    backend::{source_str::SourceStr, function_obj::FunctionObj, function_obj::FunctionType},
     backend::value::Value,
     error::codes::ErrCode,
 };
@@ -22,7 +22,6 @@ use super::{
 
 pub struct Compiler {
     pub scanner: Scanner,
-    pub chunk: Chunk,
     pub objects: Option<Box<Obj>>,
     locals: Vec<Local>,
     local_count: usize,
@@ -32,25 +31,37 @@ pub struct Compiler {
     declaration_start: TokenType,
     current: Token,
     previous: Token,
+    pub function: FunctionObj,
+    function_type: FunctionType,
     debug_print_code: bool,
 }
 
 impl Compiler {
-    pub fn new(source: String, debug_print_code: bool) -> Self {
+    pub fn new(source: String, function_type: FunctionType, debug_print_code: bool) -> Self {
+        let scanner = Scanner::new(source);
+        let locals = Self::init_locals();
+        let local_count = locals.len();
         Self {
-            scanner: Scanner::new(source),
-            chunk: Chunk::new(),
+            scanner,
             objects: None,
-            locals: Vec::new(),
-            local_count: 0,
+            locals,
+            local_count,
             scope_depth: 0,
             panic_mode: false,
             had_error: false,
             declaration_start: TokenType::None,
             current: Token::empty(),
             previous: Token::empty(),
+            function: FunctionObj::new(String::new()),
+            function_type,
             debug_print_code,
         }
+    }
+
+    fn init_locals() -> Vec<Local> {
+        let mut local = Local::new(Token::empty(), TokenType::None);
+        local.depth = 0;
+        vec![local]
     }
 
     pub fn compile(mut self) -> Result<Compiler, ErrCode> {
@@ -77,6 +88,10 @@ impl Compiler {
         );
     }
 
+    pub fn current_chunk(&mut self) -> &mut Chunk {
+        &mut self.function.chunk
+    }
+
     fn end_compiler(mut self) -> Result<Compiler, ErrCode> {
         self.consume(TokenType::Eof, "Expect end of expression");
         if self.had_error {
@@ -84,7 +99,7 @@ impl Compiler {
         }
 
         if self.debug_print_code {
-            self.chunk.disassemble("code");
+            self.current_chunk().disassemble("code");
         }
 
         Ok(self)
@@ -239,7 +254,7 @@ impl Compiler {
     }
 
     fn while_statement(&mut self) {
-        let loop_start = self.chunk.count();
+        let loop_start = self.current_chunk().count();
         self.consume(TokenType::LeftParen, "Expect '(' after 'while'.");
         self.expression();
         self.consume(TokenType::RightParen, "Expect ')' after condition.");
@@ -265,7 +280,7 @@ impl Compiler {
             self.expression_statement();
         }
 
-        let mut loop_start = self.chunk.count();
+        let mut loop_start = self.current_chunk().count();
         let mut exit_jump = None;
         if !self.match_and_advance(TokenType::SemiColon) {
             self.expression();
@@ -276,7 +291,7 @@ impl Compiler {
 
         if !self.match_and_advance(TokenType::RightParen) {
             let body_jump = self.emit_jump(OpCode::Jump(0));
-            let increment_start = self.chunk.count();
+            let increment_start = self.current_chunk().count();
             self.expression();
             self.emit_byte(OpCode::Pop);
             self.consume(TokenType::RightParen, "Expect ')' after for clauses.");
@@ -468,7 +483,7 @@ impl Compiler {
         let lexeme = self
             .scanner
             .lexeme(self.previous.start, self.previous.length);
-        match self.chunk.find_identifier(&lexeme) {
+        match self.current_chunk().find_identifier(&lexeme) {
             Some((index, value)) => match *value {
                 Value::ValIdent(_) => (index, TokenType::Val),
                 _ => (index, TokenType::Var),
@@ -662,11 +677,11 @@ impl Compiler {
     }
 
     fn patch_jump(&mut self, offset: usize) {
-        let jump = self.chunk.count() - offset;
-        match self.chunk.code[offset] {
-            OpCode::Jump(_) => self.chunk.code[offset] = OpCode::Jump(jump),
-            OpCode::JumpIfFalse(_) => self.chunk.code[offset] = OpCode::JumpIfFalse(jump),
-            OpCode::Case(_) => self.chunk.code[offset] = OpCode::Case(jump),
+        let jump = self.current_chunk().count() - offset;
+        match self.current_chunk().code[offset] {
+            OpCode::Jump(_) => self.current_chunk().code[offset] = OpCode::Jump(jump),
+            OpCode::JumpIfFalse(_) => self.current_chunk().code[offset] = OpCode::JumpIfFalse(jump),
+            OpCode::Case(_) => self.current_chunk().code[offset] = OpCode::Case(jump),
             _ => self.error(
                 "Unrecognized jump operation",
                 self.previous.start,
@@ -678,26 +693,28 @@ impl Compiler {
     }
 
     fn emit_bytes(&mut self, first: OpCode, second: OpCode) {
-        self.chunk.write(first, self.previous.line);
-        self.chunk.write(second, self.previous.line);
+        let previous_line = self.previous.line;
+        self.current_chunk().write(first, previous_line);
+        self.current_chunk().write(second, previous_line);
     }
 
     fn emit_jump(&mut self, byte: OpCode) -> usize {
         self.emit_byte(byte);
-        self.chunk.count()
+        self.current_chunk().count()
     }
 
     fn emit_loop(&mut self, loop_start: usize) {
-        let offset = self.chunk.count() - loop_start;
+        let offset = self.current_chunk().count() - loop_start;
         self.emit_byte(OpCode::Loop(offset));
     }
 
     fn emit_byte(&mut self, byte: OpCode) {
-        self.chunk.write(byte, self.previous.line);
+        let previous_line = self.previous.line;
+        self.current_chunk().write(byte, previous_line);
     }
 
     fn make_constant(&mut self, value: Rc<Value>) -> usize {
-        self.chunk.add_constant(value)
+        self.current_chunk().add_constant(value)
     }
 
     fn match_and_advance(&mut self, typ: TokenType) -> bool {

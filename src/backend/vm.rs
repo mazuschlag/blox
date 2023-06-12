@@ -16,7 +16,7 @@ use super::{
     chunk::Chunk,
     obj::Obj,
     op_code::OpCode,
-    value::Value,
+    value::Value, function_obj::FunctionType,
 };
 
 pub struct Vm {
@@ -78,10 +78,10 @@ impl Vm {
     }
 
     pub fn interpret(&mut self, source: String) -> Result<(), ErrCode> {
-        Compiler::new(source, self.debug_print_code).compile().and_then(|compiler| {
+        Compiler::new(source, FunctionType::Script, self.debug_print_code).compile().and_then(|compiler| {
             self.ip = 0;
             self.objects = compiler.objects;
-            self.run(compiler.chunk)
+            self.run(compiler.function.chunk)
         })
     }
 
