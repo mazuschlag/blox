@@ -1,18 +1,24 @@
-use std::mem;
-use std::rc::Rc;
+use std::{
+    mem,
+    rc::Rc,
+};
 
-use crate::backend::chunk::Chunk;
-use crate::backend::obj::Obj;
-use crate::backend::op_code::OpCode;
-use crate::backend::source_str::SourceStr;
-use crate::backend::value::Value;
-use crate::error::codes::ErrCode;
+use crate::{
+    backend::chunk::Chunk,
+    backend::obj::Obj,
+    backend::op_code::OpCode,
+    backend::source_str::SourceStr,
+    backend::value::Value,
+    error::codes::ErrCode,
+};
 
-use super::local::Local;
-use super::precedence::Precedence;
-use super::scanner::Scanner;
-use super::token::Token;
-use super::token_type::TokenType;
+use super::{ 
+    local::Local,
+    precedence::Precedence,
+    scanner::Scanner,
+    token::Token,
+    token_type::TokenType,
+};
 
 pub struct Compiler {
     pub scanner: Scanner,

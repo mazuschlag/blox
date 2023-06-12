@@ -1,17 +1,23 @@
-use std::borrow::Borrow;
-use std::collections::HashMap;
-use std::fs;
-use std::io::{self, BufRead, Write};
-use std::rc::Rc;
-use std::str;
+use std::{
+    borrow::Borrow,
+    collections::HashMap,
+    fs,
+    io::{self, BufRead, Write},
+    rc::Rc,
+    str,
+};
 
-use crate::error::codes::ErrCode;
-use crate::frontend::compiler::Compiler;
+use crate::{
+    error::codes::ErrCode,
+    frontend::compiler::Compiler,
+};
 
-use super::chunk::Chunk;
-use super::obj::Obj;
-use super::op_code::OpCode;
-use super::value::Value;
+use super::{
+    chunk::Chunk,
+    obj::Obj,
+    op_code::OpCode,
+    value::Value,
+};
 
 pub struct Vm {
     ip: usize,

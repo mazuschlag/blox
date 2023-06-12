@@ -1,5 +1,7 @@
-use std::fmt;
-use std::rc::Rc;
+use std::{
+    fmt,
+    rc::Rc,
+};
 
 use super::value::Value;
 

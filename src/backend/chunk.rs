@@ -1,10 +1,12 @@
 use std::rc::Rc;
 
-use super::op_code::OpCode;
-use super::value::Value;
-use super::value_array::ValueArray;
+use super::{
+    op_code::OpCode,
+    value::Value,
+    value_array::ValueArray,
+};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Chunk {
     pub code: Vec<OpCode>,
     pub constants: ValueArray,

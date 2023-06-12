@@ -1,9 +1,11 @@
-use std::borrow::Borrow;
-use std::rc::Rc;
+use std::{
+    borrow::Borrow,
+    rc::Rc,
+};
 
 use super::value::Value;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ValueArray {
     values: Vec<Rc<Value>>,
 }

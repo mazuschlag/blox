@@ -2,11 +2,15 @@ mod backend;
 mod error;
 mod frontend;
 
-use std::env;
-use std::process;
+use std::{
+    env,
+    process,
+};
 
-use crate::backend::vm::Vm;
-use crate::error::codes::ErrCode;
+use crate::{
+    backend::vm::Vm,
+    error::codes::ErrCode,
+};
 
 const DEBUG_PRINT_ARG: &str = "-p";
 const DEBUG_TRACE_ARG: &str = "-t";
