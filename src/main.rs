@@ -8,9 +8,10 @@ use std::process;
 use crate::backend::vm::Vm;
 use crate::error::codes::ErrCode;
 
+const DEBUG_PRINT_ARG: &str = "-p";
+const DEBUG_TRACE_ARG: &str = "-t";
+
 fn main() {
-    let debug_print_arg = String::from("-p");
-    let debug_trace_arg = String::from("-t");
     let args: Vec<String> = env::args().collect();
 
     let mut vm = Vm::new();
@@ -19,17 +20,17 @@ fn main() {
         1 => vm.repl(),
         2 => vm.run_file(&args[1], false, false),
         3 => {
-            if args[2] == debug_print_arg {
+            if args[2] == DEBUG_PRINT_ARG {
                 vm.run_file(&args[1], true, false)
-            } else if args[2] == debug_trace_arg {
+            } else if args[2] == DEBUG_TRACE_ARG {
                 vm.run_file(&args[1], false, true)
             } else {
                 Err(ErrCode::Io(format!("Unrecognized arg {}", args[2])))
             }
         },
         4 => {
-            if (args[2] == debug_print_arg || args[3] == debug_print_arg) &&
-            (args[2] == debug_trace_arg || args[3] == debug_trace_arg) {
+            if (args[2] == DEBUG_PRINT_ARG || args[3] == DEBUG_PRINT_ARG) &&
+            (args[2] == DEBUG_TRACE_ARG || args[3] == DEBUG_TRACE_ARG) {
                 vm.run_file(&args[1], true, true)
             } else {
                 Err(ErrCode::Io(format!("Unrecognized arg {} {}", args[3], args[4])))
