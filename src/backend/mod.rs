@@ -1,3 +1,4 @@
+pub mod call_frame;
 pub mod chunk;
 pub mod function_obj;
 pub mod obj;

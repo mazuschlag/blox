@@ -1,4 +1,5 @@
 use std::{
+    borrow::Borrow,
     mem,
     rc::Rc,
 };
@@ -22,7 +23,7 @@ use super::{
 
 pub struct Compiler {
     pub scanner: Scanner,
-    pub objects: Option<Box<Obj>>,
+    pub objects: Option<Rc<Obj>>,
     locals: Vec<Local>,
     local_count: usize,
     scope_depth: usize,
@@ -484,16 +485,16 @@ impl Compiler {
             .scanner
             .lexeme(self.previous.start, self.previous.length);
         match self.current_chunk().find_identifier(&lexeme) {
-            Some((index, value)) => match *value {
+            Some((index, value)) => match (*value).borrow() {
                 Value::ValIdent(_) => (index, TokenType::Val),
                 _ => (index, TokenType::Var),
             },
             None => {
                 let value = match self.declaration_start {
-                    TokenType::Val => Rc::new(Value::ValIdent(lexeme)),
-                    _ => Rc::new(Value::VarIdent(lexeme)),
+                    TokenType::Val => Value::ValIdent(lexeme),
+                    _ => Value::VarIdent(lexeme),
                 };
-                (self.make_constant(value), self.declaration_start)
+                (self.make_constant(Rc::new(value)), self.declaration_start)
             }
         }
     }
@@ -535,8 +536,8 @@ impl Compiler {
         let number = self
             .scanner
             .lexeme(self.previous.start, self.previous.length);
-        let value = Rc::new(Value::Number(number.parse::<f64>().unwrap()));
-        self.emit_constant(value);
+        let value = Value::Number(number.parse::<f64>().unwrap());
+        self.emit_constant(Rc::new(value));
     }
 
     fn string(&mut self) {
@@ -546,8 +547,9 @@ impl Compiler {
             self.previous.length,
             Rc::clone(&self.scanner.source),
         )));
+
         self.emit_constant(Rc::clone(&string));
-        self.objects = Some(Box::new(Obj::new(string, next_obj)));
+        self.objects = Some(Rc::new(Obj::new(string, next_obj)));
     }
 
     fn variable(&mut self, can_assign: bool) {
@@ -671,9 +673,10 @@ impl Compiler {
         self.emit_byte(OpCode::Return);
     }
 
-    fn emit_constant(&mut self, value: Rc<Value>) {
+    fn emit_constant(&mut self, value: Rc<Value>) -> usize {
         let index = self.make_constant(value);
         self.emit_byte(OpCode::Constant(index));
+        index
     }
 
     fn patch_jump(&mut self, offset: usize) {

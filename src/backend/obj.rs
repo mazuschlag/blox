@@ -1,34 +1,31 @@
 use std::{
+    borrow::Borrow,
     fmt,
     rc::Rc,
 };
 
 use super::value::Value;
 
-pub struct Obj {
+pub struct Obj
+    where  {
     pub value: Rc<Value>,
-    pub next: Option<Box<Obj>>,
+    pub next: Option<Rc<Obj>>,
 }
 
 impl Obj {
-    pub fn new(value: Rc<Value>, next: Option<Box<Obj>>) -> Self {
+    pub fn new(value: Rc<Value>, next: Option<Rc<Obj>>) -> Self {
         Self { value, next }
     }
 
     pub fn peek(&self) -> &Value {
-        &self.value
+        self.value.borrow()
     }
 
     pub fn peek_next(&self) -> Option<&Value> {
         match &self.next {
-            Some(obj) => Some(obj.peek()),
-            _ => None,
+            Some(obj) => Some(&obj.value),
+            None => None,
         }
-    }
-
-    #[allow(dead_code)]
-    pub fn free(self) -> Option<Box<Obj>> {
-        self.next
     }
 }
 

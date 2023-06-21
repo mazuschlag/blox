@@ -39,7 +39,7 @@ impl Chunk {
         }
     }
 
-    pub fn find_identifier(&self, query: &str) -> Option<(usize, Rc<Value>)> {
+    pub fn find_identifier(&self, query: &str) -> Option<(usize, &Rc<Value>)> {
         self.constants.find_identifier(query)
     }
 

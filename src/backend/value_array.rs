@@ -1,8 +1,4 @@
-use std::{
-    borrow::Borrow,
-    rc::Rc,
-};
-
+use std::{borrow::Borrow, rc::Rc};
 use super::value::Value;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -23,22 +19,21 @@ impl ValueArray {
         self.values.len()
     }
 
-    pub fn get(&self, index: usize) -> Rc<Value> {
-        Rc::clone(&self.values[index])
+    pub fn get(&self, index: usize) -> &Rc<Value> {
+        &self.values[index]
     }
 
-    pub fn find_identifier(&self, query: &str) -> Option<(usize, Rc<Value>)> {
+    pub fn find_identifier(&self, query: &str) -> Option<(usize, &Rc<Value>)> {
         for (index, constant) in self.values.iter().enumerate() {
-            let value = Rc::clone(constant);
-            match value.borrow() {
+            match (*constant).borrow() {
                 Value::ValIdent(name) => {
                     if name == query {
-                        return Some((index, value));
+                        return Some((index, constant));
                     }
                 }
                 Value::VarIdent(name) => {
                     if name == query {
-                        return Some((index, value));
+                        return Some((index, constant));
                     }
                 }
                 _ => (),
