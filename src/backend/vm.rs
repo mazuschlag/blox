@@ -14,8 +14,7 @@ use crate::{
 
 use super::{
     call_frame::CallFrame,
-    chunk::Chunk,
-    function_obj::{FunctionObj, FunctionType},
+    function_obj::FunctionType,
     obj::Obj,
     op_code::OpCode,
     value::Value,
