@@ -3,7 +3,7 @@ use super::value::Value;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ValueArray {
-    values: Vec<Rc<Value>>,
+    values: Vec<Value>,
 }
 
 impl ValueArray {
@@ -11,7 +11,7 @@ impl ValueArray {
         ValueArray { values: vec![] }
     }
 
-    pub fn write(&mut self, value: Rc<Value>) {
+    pub fn write(&mut self, value: Value) {
         self.values.push(value);
     }
 
@@ -19,21 +19,21 @@ impl ValueArray {
         self.values.len()
     }
 
-    pub fn get(&self, index: usize) -> &Rc<Value> {
-        &self.values[index]
+    pub fn get(&self, index: usize) -> Value {
+        self.values[index].clone()
     }
 
-    pub fn find_identifier(&self, query: &str) -> Option<(usize, &Rc<Value>)> {
+    pub fn find_identifier(&self, query: &str) -> Option<(usize, Value)> {
         for (index, constant) in self.values.iter().enumerate() {
             match (*constant).borrow() {
                 Value::ValIdent(name) => {
                     if name == query {
-                        return Some((index, constant));
+                        return Some((index, constant.clone()));
                     }
                 }
                 Value::VarIdent(name) => {
                     if name == query {
-                        return Some((index, constant));
+                        return Some((index, constant.clone()));
                     }
                 }
                 _ => (),

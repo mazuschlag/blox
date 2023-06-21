@@ -1,4 +1,7 @@
-use std::rc::Rc;
+use std::{
+    cell::RefCell,
+    rc::Rc
+};
 
 use super::{
     op_code::OpCode,
@@ -9,7 +12,7 @@ use super::{
 #[derive(Debug, Clone, PartialEq)]
 pub struct Chunk {
     pub code: Vec<OpCode>,
-    pub constants: ValueArray,
+    pub constants: Rc<RefCell<ValueArray>>,
     lines: Vec<usize>,
 }
 
@@ -17,7 +20,7 @@ impl Chunk {
     pub fn new() -> Self {
         Self {
             code: vec![],
-            constants: ValueArray::new(),
+            constants: Rc::new(RefCell::new(ValueArray::new())),
             lines: vec![],
         }
     }
@@ -27,9 +30,9 @@ impl Chunk {
         self.write_line(line);
     }
 
-    pub fn add_constant(&mut self, value: Rc<Value>) -> usize {
-        self.constants.write(value);
-        self.constants.count() - 1
+    pub fn add_constant(&mut self, value: Value) -> usize {
+        self.constants.borrow_mut().write(value);
+        self.constants.borrow_mut().count() - 1
     }
 
     pub fn disassemble(&self, name: &str) {
@@ -39,8 +42,12 @@ impl Chunk {
         }
     }
 
-    pub fn find_identifier(&self, query: &str) -> Option<(usize, &Rc<Value>)> {
-        self.constants.find_identifier(query)
+    pub fn find_identifier(&self, query: &str) -> Option<(usize, Value)> {
+       if let Some((index, value)) = self.constants.borrow().find_identifier(query) {
+           return Some((index, value.clone()));
+       }
+
+       None
     }
 
     pub fn disassamble_instruction(&self, offset: usize, instruction: &OpCode) {
@@ -56,7 +63,7 @@ impl Chunk {
         }
         match instruction {
             OpCode::Constant(index) => {
-                println!("{} '{}'", instruction, self.constants.get(*index))
+                println!("{} '{}'", instruction, self.constants.borrow().get(*index))
             }
             _ => println!("{}", instruction),
         };

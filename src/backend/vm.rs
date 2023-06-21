@@ -1,5 +1,4 @@
 use std::{
-    borrow::Borrow,
     collections::HashMap,
     fs,
     io::{self, BufRead, Write},
@@ -25,10 +24,10 @@ const STACK_MAX: usize = FRAMES_MAX * u8::MAX as usize;
 
 pub struct Vm {
     frame_count: usize,
-    stack: Vec<Rc<Value>>,
+    stack: Vec<Value>,
     objects: Option<Rc<Obj>>,
     frames: Vec<CallFrame>,
-    globals: HashMap<String, Rc<Value>>,
+    globals: HashMap<String, Value>,
     debug_print_code: bool,
     debug_trace: bool,
 }
@@ -117,14 +116,14 @@ impl Vm {
         match self.frame().function.chunk.code[ip] {
             OpCode::Return => Ok(()),
             OpCode::Constant(index) => {
-                let value =Rc::clone(&self.frame().function.chunk.constants.get(index));
+                let value = self.get_constant(index);
                 self.stack.push(value);
                 Ok(())
             }
             OpCode::Negate => {
                 let top = self.stack_top();
-                if let Value::Number(n) = self.stack[top].borrow() {
-                    self.stack[top] = Rc::new(Value::Number(-n));
+                if let Value::Number(n) = self.stack[top] {
+                    self.stack[top] = Value::Number(-n);
                     return Ok(());
                 }
 
@@ -133,7 +132,7 @@ impl Vm {
             OpCode::Add => {
                 let (left, right) = self.get_left_right()?;
                 
-                match (right.borrow(), left.borrow()) {
+                match (&right, &left) {
                     (Value::SourceStr(r), Value::SourceStr(l)) => {
                         self.concat_strings(&l.to_string(), &r.to_string());
                     }
@@ -148,7 +147,7 @@ impl Vm {
                     }
                     (Value::Number(r), Value::Number(l)) => {
                         let value = Value::Number(l + r);
-                        self.stack.push(Rc::new(value));
+                        self.stack.push(value);
                     }
                     _ => return Err(String::from("Operands must be two numbers or two strings"))
                 };
@@ -159,26 +158,26 @@ impl Vm {
             OpCode::Multiply => self.binary_op(|right, left| Value::Number(left * right)),
             OpCode::Divide => self.binary_op(|right, left| Value::Number(left / right)),
             OpCode::True => {
-                self.stack.push(Rc::new(Value::Bool(true)));
+                self.stack.push(Value::Bool(true));
                 Ok(())
             }
             OpCode::False => {
-                self.stack.push(Rc::new(Value::Bool(false)));
+                self.stack.push(Value::Bool(false));
                 Ok(())
             }
             OpCode::Nil => {
-                self.stack.push(Rc::new(Value::Nil));
+                self.stack.push(Value::Nil);
                 Ok(())
             }
             OpCode::Not => {
                 let value = self.is_falsey()?;
-                self.stack.push(Rc::new(Value::Bool(value)));
+                self.stack.push(Value::Bool(value));
                 Ok(())
             }
             OpCode::Equal => { 
                 let (left, right) = self.get_left_right()?;
 
-                let value = match (right.borrow(), left.borrow()) {
+                let value = match (right, left) {
                     (Value::Number(r), Value::Number(l)) => {
                         Value::Bool(l == r)
                     }
@@ -186,10 +185,10 @@ impl Vm {
                         Value::Bool(l.to_string() == r.to_string())
                     }
                     (Value::SourceStr(r), Value::Str(l)) => {
-                        Value::Bool(l == &r.to_string())
+                        Value::Bool(l == r.to_string())
                     }
                     (Value::Str(r), Value::SourceStr(l)) => {
-                        Value::Bool(&l.to_string() == r)
+                        Value::Bool(l.to_string() == r)
                     }
                     (Value::Str(b), Value::Str(a)) => {
                         Value::Bool(a == b)
@@ -202,7 +201,7 @@ impl Vm {
                     )),
                 };
 
-                self.stack.push(Rc::new(value));
+                self.stack.push(value);
                 Ok(())
             }
             OpCode::Greater => self.binary_op(|right, left| Value::Bool(left > right)),
@@ -213,8 +212,8 @@ impl Vm {
                 None => Err(String::from("Not enough values on the stack")),
             },
             OpCode::DefGlobal(index) => {
-                let name = Rc::clone(&self.frame().function.chunk.constants.get(index));
-                match name.borrow() {
+                let name = self.get_constant(index);
+                match name {
                     Value::VarIdent(n) | Value::ValIdent(n) => {
                         let top = self.stack_top();
                         self.globals.insert(n.clone(), self.stack[top].clone());
@@ -225,8 +224,8 @@ impl Vm {
                 }
             }
             OpCode::GetGlobal(index) => {
-                let name = Rc::clone(&self.frame().function.chunk.constants.get(index));
-                match name.borrow() {
+                let name = self.get_constant(index);
+                match &name {
                     Value::VarIdent(n) | Value::ValIdent(n) => match self.globals.get(n) {
                         Some(value) => {
                             self.stack.push(value.clone());
@@ -238,15 +237,15 @@ impl Vm {
                 }
             }
             OpCode::SetGlobal(index) => {
-                let name_ref = Rc::clone(&self.frame().function.chunk.constants.get(index));
-                let name = match name_ref.borrow() {
+                let name_ref = self.get_constant(index);
+                let name = match &name_ref {
                     Value::VarIdent(name) | Value::ValIdent(name) => name,
                     _ => return Err(String::from("Not a valid identifier")),
                 };
                 
                 let top = self.stack_top();
                 if self.globals.contains_key(name) {
-                    self.globals.insert(name.clone(), Rc::clone(&self.stack[top]));
+                    self.globals.insert(name.clone(), self.stack[top].clone());
                     return Ok(());
                 }
                     
@@ -254,14 +253,14 @@ impl Vm {
             }
             OpCode::GetLocal(slot) => {
                 let offset = self.frame().slots_start + slot;
-                let value = Rc::clone(&self.stack[offset]);
+                let value = self.stack[offset].clone();
                 self.stack.push(value);
                 Ok(())
             }
             OpCode::SetLocal(slot) => {
                 let top = self.stack_top();
                 let offset = self.frame().slots_start + slot;
-                self.stack[offset] = Rc::clone(&self.stack[top]);
+                self.stack[offset] = self.stack[top].clone();
                 Ok(())
             }
             OpCode::JumpIfFalse(offset) => {
@@ -287,7 +286,7 @@ impl Vm {
                     return Err(String::from("Not enough values on the stack"))
                 }
 
-                match (self.stack[top].borrow(), self.stack[below].borrow()) {
+                match (&self.stack[top], &self.stack[below]) {
                     (Value::Number(r), Value::Number(l)) => {
                         if r != l {
                             self.frame().ip += offset;
@@ -336,16 +335,14 @@ impl Vm {
     where
         F: FnMut(f64, f64) -> Value,
     {
-        self.stack.pop().zip(self.stack.pop()).map_or(
-            Err(String::from("Not enough values on the stack")),
-            |(b, a)| match (a.borrow(), b.borrow()) {
-                (Value::Number(b), Value::Number(a)) => {
-                    self.stack.push(Rc::new(op(*a, *b)));
-                    Ok(())
-                }
-                _ => Err(String::from("Operand must be a number")),
-            },
-        )
+        let (left, right) = self.get_left_right()?;
+        match (left, right) {
+            (Value::Number(b), Value::Number(a)) => {
+                self.stack.push(op(a, b));
+                Ok(())
+            }
+            _ => Err(String::from("Operand must be a number")),
+        }
     }
 
     fn print_value(&mut self) -> Result<(), String> {
@@ -361,9 +358,8 @@ impl Vm {
     fn concat_strings(&mut self, a: &str, b: &str) {
         let next_obj = self.objects.take();
 
-        let string = Rc::new(Value::Str(format!("{}{}", a, b)));
-        self.stack.push(Rc::clone(&string));
-        self.objects = Some(Rc::new(Obj::new(string, next_obj)));
+        let string = Value::Str(format!("{}{}", a, b));
+        self.stack.push(string);
     }
 
     fn is_falsey(&mut self) -> Result<bool, String> {
@@ -375,13 +371,17 @@ impl Vm {
         Err(String::from("Not enough values on stack"))
     }
 
-    fn get_left_right(&mut self) -> Result<(Rc<Value>, Rc<Value>), String> {
+    fn get_left_right(&mut self) -> Result<(Value, Value), String> {
         let right_ref = self.stack.pop();
         let left_ref = self.stack.pop();
         match (right_ref, left_ref) {
             (None, _) | (_, None) => return Err(String::from("Not enough values on the stack")),
             (Some(right), Some(left)) => Ok((left, right)),
         }
+    }
+
+    fn get_constant(&mut self, index: usize) -> Value {
+        (*self.frame().function.chunk.constants).borrow().get(index).clone()
     }
 
     fn frame(&mut self) -> &mut CallFrame {
