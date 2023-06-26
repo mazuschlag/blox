@@ -600,7 +600,7 @@ impl Compiler {
                     );
                 }
 
-                return Some((i, (self.locals[i].dec_type)));
+                return Some((i - 1, (self.locals[i].dec_type)));
             }
         }
 

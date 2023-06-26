@@ -91,7 +91,7 @@ impl Vm {
     }
 
     fn run(&mut self) -> Result<(), ErrCode> {
-        while self.frame().ip < self.frame().function.chunk.count() {
+        while self.frame().ip <= self.frame().function.chunk.count() {
             if self.debug_trace {
                 self.stack_trace();
                 let ip = self.frame().ip;
