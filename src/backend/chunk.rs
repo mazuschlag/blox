@@ -1,13 +1,6 @@
-use std::{
-    cell::RefCell,
-    rc::Rc
-};
+use std::{cell::RefCell, rc::Rc};
 
-use super::{
-    op_code::OpCode,
-    value::Value,
-    value_array::ValueArray,
-};
+use super::{op_code::OpCode, value::Value, value_array::ValueArray};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Chunk {
@@ -43,11 +36,11 @@ impl Chunk {
     }
 
     pub fn find_identifier(&self, query: &str) -> Option<(usize, Value)> {
-       if let Some((index, value)) = self.constants.borrow().find_identifier(query) {
-           return Some((index, value.clone()));
-       }
+        if let Some((index, value)) = self.constants.borrow().find_identifier(query) {
+            return Some((index, value.clone()));
+        }
 
-       None
+        None
     }
 
     pub fn disassamble_instruction(&self, offset: usize, instruction: &OpCode) {

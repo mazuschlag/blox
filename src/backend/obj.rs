@@ -1,14 +1,6 @@
-use std::{
-    borrow::Borrow,
-    cell::RefCell,
-    fmt,
-    rc::Rc,
-};
+use std::{cell::RefCell, fmt, rc::Rc};
 
-use super::{
-    value::Value,
-    value_array::ValueArray,
-};
+use super::{value::Value, value_array::ValueArray};
 
 pub struct Obj {
     pub value_array: Rc<RefCell<ValueArray>>,
@@ -18,7 +10,11 @@ pub struct Obj {
 
 impl Obj {
     pub fn new(value_array: Rc<RefCell<ValueArray>>, value: usize, next: Option<Rc<Obj>>) -> Self {
-        Self { value_array, value, next }
+        Self {
+            value_array,
+            value,
+            next,
+        }
     }
 
     pub fn peek(&self) -> Value {

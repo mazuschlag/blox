@@ -2,15 +2,9 @@ mod backend;
 mod error;
 mod frontend;
 
-use std::{
-    env,
-    process,
-};
+use std::{env, process};
 
-use crate::{
-    backend::vm::Vm,
-    error::codes::ErrCode,
-};
+use crate::{backend::vm::Vm, error::codes::ErrCode};
 
 const DEBUG_PRINT_ARG: &str = "-p";
 const DEBUG_TRACE_ARG: &str = "-t";
@@ -31,13 +25,17 @@ fn main() {
             } else {
                 Err(ErrCode::Io(format!("Unrecognized arg {}", args[2])))
             }
-        },
+        }
         4 => {
-            if (args[2] == DEBUG_PRINT_ARG || args[3] == DEBUG_PRINT_ARG) &&
-            (args[2] == DEBUG_TRACE_ARG || args[3] == DEBUG_TRACE_ARG) {
+            if (args[2] == DEBUG_PRINT_ARG || args[3] == DEBUG_PRINT_ARG)
+                && (args[2] == DEBUG_TRACE_ARG || args[3] == DEBUG_TRACE_ARG)
+            {
                 vm.run_file(&args[1], true, true)
             } else {
-                Err(ErrCode::Io(format!("Unrecognized arg {} {}", args[3], args[4])))
+                Err(ErrCode::Io(format!(
+                    "Unrecognized arg {} {}",
+                    args[3], args[4]
+                )))
             }
         }
         _ => Err(ErrCode::Io(String::from("Usage: blox [path] -p? -t?"))),

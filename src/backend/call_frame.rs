@@ -11,7 +11,7 @@ impl CallFrame {
         CallFrame {
             function,
             ip,
-            slots_start
+            slots_start,
         }
     }
 }

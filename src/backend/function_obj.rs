@@ -1,5 +1,5 @@
-use std::fmt;
 use super::chunk::Chunk;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionObj {
@@ -10,17 +10,21 @@ pub struct FunctionObj {
 
 impl FunctionObj {
     pub fn new(name: String) -> FunctionObj {
-        FunctionObj { arity: 0, chunk: Chunk::new(), name: name }
+        FunctionObj {
+            arity: 0,
+            chunk: Chunk::new(),
+            name: name,
+        }
     }
 }
 
 impl fmt::Display for FunctionObj {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-       if self.name.is_empty() {
+        if self.name.is_empty() {
             write!(f, "<script>")
-       } else {
+        } else {
             write!(f, "<fn {}>", self.name)
-       }
+        }
     }
 }
 

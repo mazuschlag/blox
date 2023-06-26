@@ -1,23 +1,16 @@
-use std::{
-    mem,
-    rc::Rc,
-};
+use std::{mem, rc::Rc};
 
 use crate::{
     backend::chunk::Chunk,
     backend::obj::Obj,
     backend::op_code::OpCode,
-    backend::{source_str::SourceStr, function_obj::FunctionObj, function_obj::FunctionType},
     backend::value::Value,
+    backend::{function_obj::FunctionObj, function_obj::FunctionType, source_str::SourceStr},
     error::codes::ErrCode,
 };
 
-use super::{ 
-    local::Local,
-    precedence::Precedence,
-    scanner::Scanner,
-    token::Token,
-    token_type::TokenType,
+use super::{
+    local::Local, precedence::Precedence, scanner::Scanner, token::Token, token_type::TokenType,
 };
 
 pub struct Compiler {
@@ -331,7 +324,10 @@ impl Compiler {
             let case_jump = self.emit_jump(OpCode::Case(0));
             self.emit_byte(OpCode::Pop);
             self.emit_byte(OpCode::Pop);
-            while !self.check(TokenType::Case) && !self.check(TokenType::Default) && !self.check(TokenType::RightBrace) {
+            while !self.check(TokenType::Case)
+                && !self.check(TokenType::Default)
+                && !self.check(TokenType::RightBrace)
+            {
                 self.declaration();
             }
 
@@ -343,7 +339,7 @@ impl Compiler {
         self.default_statement();
         self.end_scope();
         self.consume(TokenType::RightBrace, "Expect '}' after switch block.");
-        
+
         for jump in jumps {
             self.patch_jump(jump);
         }
@@ -548,7 +544,11 @@ impl Compiler {
         ));
 
         let value = self.emit_constant(string);
-        self.objects = Some(Rc::new(Obj::new(Rc::clone(&self.current_chunk().constants), value, next_obj)));
+        self.objects = Some(Rc::new(Obj::new(
+            Rc::clone(&self.current_chunk().constants),
+            value,
+            next_obj,
+        )));
     }
 
     fn variable(&mut self, can_assign: bool) {
@@ -690,7 +690,7 @@ impl Compiler {
                 self.previous.length,
                 self.previous.typ,
                 self.previous.line,
-            )
+            ),
         };
     }
 

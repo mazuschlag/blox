@@ -6,17 +6,10 @@ use std::{
     str,
 };
 
-use crate::{
-    error::codes::ErrCode,
-    frontend::compiler::Compiler,
-};
+use crate::{error::codes::ErrCode, frontend::compiler::Compiler};
 
 use super::{
-    call_frame::CallFrame,
-    function_obj::FunctionType,
-    obj::Obj,
-    op_code::OpCode,
-    value::Value,
+    call_frame::CallFrame, function_obj::FunctionType, obj::Obj, op_code::OpCode, value::Value,
 };
 
 const FRAMES_MAX: usize = 64;
@@ -74,7 +67,12 @@ impl Vm {
         Ok(())
     }
 
-    pub fn run_file(&mut self, path: &str, debug_print_code: bool, debug_trace: bool) -> Result<(), ErrCode> {
+    pub fn run_file(
+        &mut self,
+        path: &str,
+        debug_print_code: bool,
+        debug_trace: bool,
+    ) -> Result<(), ErrCode> {
         self.debug_print_code = debug_print_code;
         self.debug_trace = debug_trace;
         fs::read_to_string(path)
@@ -83,7 +81,8 @@ impl Vm {
     }
 
     pub fn interpret(&mut self, source: String) -> Result<(), ErrCode> {
-        let compiler = Compiler::new(source, FunctionType::Script, self.debug_print_code).compile()?;
+        let compiler =
+            Compiler::new(source, FunctionType::Script, self.debug_print_code).compile()?;
         let frame = CallFrame::new(compiler.function, 0, 0);
         self.frames.push(frame);
         self.frame_count = self.frames.len();
@@ -131,7 +130,7 @@ impl Vm {
             }
             OpCode::Add => {
                 let (left, right) = self.get_left_right()?;
-                
+
                 match (&right, &left) {
                     (Value::SourceStr(r), Value::SourceStr(l)) => {
                         self.concat_strings(&l.to_string(), &r.to_string());
@@ -149,7 +148,7 @@ impl Vm {
                         let value = Value::Number(l + r);
                         self.stack.push(value);
                     }
-                    _ => return Err(String::from("Operands must be two numbers or two strings"))
+                    _ => return Err(String::from("Operands must be two numbers or two strings")),
                 };
 
                 Ok(())
@@ -174,31 +173,23 @@ impl Vm {
                 self.stack.push(Value::Bool(value));
                 Ok(())
             }
-            OpCode::Equal => { 
+            OpCode::Equal => {
                 let (left, right) = self.get_left_right()?;
 
                 let value = match (right, left) {
-                    (Value::Number(r), Value::Number(l)) => {
-                        Value::Bool(l == r)
-                    }
+                    (Value::Number(r), Value::Number(l)) => Value::Bool(l == r),
                     (Value::SourceStr(r), Value::SourceStr(l)) => {
                         Value::Bool(l.to_string() == r.to_string())
                     }
-                    (Value::SourceStr(r), Value::Str(l)) => {
-                        Value::Bool(l == r.to_string())
+                    (Value::SourceStr(r), Value::Str(l)) => Value::Bool(l == r.to_string()),
+                    (Value::Str(r), Value::SourceStr(l)) => Value::Bool(l.to_string() == r),
+                    (Value::Str(b), Value::Str(a)) => Value::Bool(a == b),
+                    (Value::Bool(b), Value::Bool(a)) => Value::Bool(a == b),
+                    _ => {
+                        return Err(String::from(
+                            "Operands must be two numbers, two strings, or two booleans",
+                        ))
                     }
-                    (Value::Str(r), Value::SourceStr(l)) => {
-                        Value::Bool(l.to_string() == r)
-                    }
-                    (Value::Str(b), Value::Str(a)) => {
-                        Value::Bool(a == b)
-                    }
-                    (Value::Bool(b), Value::Bool(a)) => {
-                        Value::Bool(a == b)
-                    }
-                    _ => return Err(String::from(
-                        "Operands must be two numbers, two strings, or two booleans",
-                    )),
                 };
 
                 self.stack.push(value);
@@ -242,13 +233,13 @@ impl Vm {
                     Value::VarIdent(name) | Value::ValIdent(name) => name,
                     _ => return Err(String::from("Not a valid identifier")),
                 };
-                
+
                 let top = self.stack_top();
                 if self.globals.contains_key(name) {
                     self.globals.insert(name.clone(), self.stack[top].clone());
                     return Ok(());
                 }
-                    
+
                 Err(format!("Undefined variable {}", name_ref))
             }
             OpCode::GetLocal(slot) => {
@@ -283,7 +274,7 @@ impl Vm {
                 let top = self.stack_top();
                 let below = top - 1;
                 if self.stack.len() < 2 {
-                    return Err(String::from("Not enough values on the stack"))
+                    return Err(String::from("Not enough values on the stack"));
                 }
 
                 match (&self.stack[top], &self.stack[below]) {
@@ -323,7 +314,7 @@ impl Vm {
                             self.stack.pop();
                         }
                     }
-                    _ => return Err(String::from("Mismatched types in case statement"))
+                    _ => return Err(String::from("Mismatched types in case statement")),
                 }
 
                 Ok(())
@@ -356,8 +347,6 @@ impl Vm {
     }
 
     fn concat_strings(&mut self, a: &str, b: &str) {
-        let next_obj = self.objects.take();
-
         let string = Value::Str(format!("{}{}", a, b));
         self.stack.push(string);
     }
@@ -381,7 +370,10 @@ impl Vm {
     }
 
     fn get_constant(&mut self, index: usize) -> Value {
-        (*self.frame().function.chunk.constants).borrow().get(index).clone()
+        (*self.frame().function.chunk.constants)
+            .borrow()
+            .get(index)
+            .clone()
     }
 
     fn frame(&mut self) -> &mut CallFrame {
@@ -394,7 +386,11 @@ impl Vm {
 
     fn runtime_error(&mut self, msg: &str) -> String {
         let frame = self.frame();
-        format!("{}\n[line {}] in script\n", msg, frame.function.chunk.get_line(frame.ip))
+        format!(
+            "{}\n[line {}] in script\n",
+            msg,
+            frame.function.chunk.get_line(frame.ip)
+        )
     }
 
     fn stack_trace(&self) {
