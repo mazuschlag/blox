@@ -1,4 +1,4 @@
-use std::{mem, rc::Rc};
+use std::{mem, rc::Rc, cell::RefCell};
 
 use crate::{
     backend::chunk::Chunk,
@@ -14,7 +14,7 @@ use super::{
 };
 
 pub struct Compiler {
-    pub scanner: Scanner,
+    pub scanner: Rc<RefCell<Scanner>>,
     pub objects: Option<Rc<Obj>>,
     locals: Vec<Local>,
     local_count: usize,
@@ -30,13 +30,12 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    pub fn new(source: String, function_type: FunctionType, debug_print_code: bool) -> Self {
-        let scanner = Scanner::new(source);
+    pub fn new(scanner: Rc<RefCell<Scanner>>, objects: Option<Rc<Obj>>, function_name: String, function_type: FunctionType, debug_print_code: bool) -> Self {
         let locals = Self::init_locals();
         let local_count = locals.len();
         Self {
             scanner,
-            objects: None,
+            objects,
             locals,
             local_count,
             scope_depth: 0,
@@ -45,7 +44,7 @@ impl Compiler {
             declaration_start: TokenType::None,
             current: Token::empty(),
             previous: Token::empty(),
-            function: FunctionObj::new(String::new()),
+            function: FunctionObj::new(function_name),
             function_type,
             debug_print_code,
         }
@@ -105,7 +104,8 @@ impl Compiler {
 
         self.previous = mem::replace(&mut self.current, Token::empty());
         loop {
-            match self.scanner.scan_token() {
+            let token = self.scanner.borrow_mut().scan_token();
+            match token {
                 Ok(token) => {
                     self.current = token;
                     return;
@@ -125,7 +125,10 @@ impl Compiler {
 
     fn declaration(&mut self) {
         self.declaration_start = self.current.typ;
-        if self.match_and_advance(TokenType::Var) {
+        if self.match_and_advance(TokenType::Fun) {
+            self.fun_declaration();
+        }
+        else if self.match_and_advance(TokenType::Var) {
             self.var_declaration();
         } else if self.match_and_advance(TokenType::Val) {
             self.val_declaration();
@@ -136,6 +139,54 @@ impl Compiler {
         if self.panic_mode {
             self.synchronize();
         }
+    }
+
+    fn fun_declaration(&mut self) {
+        let global = self.parse_variable("Excpect function name", TokenType::Fun);
+        self.mark_initialized();
+        self.function(FunctionType::Function);
+        self.define_variable(global);
+    }
+
+    fn function(&mut self, function_type: FunctionType) {
+        let scanner = Rc::clone(&self.scanner);
+        let objects = self.objects.as_ref().map(|o| Rc::clone(&o));
+        let function_name = self.scanner.borrow().lexeme(self.previous.start, self.previous.length);
+        let compiler = Compiler::new(scanner, objects, function_name, function_type, self.debug_print_code).compile_function();
+        let value = self.make_constant(Value::Function(compiler.function));
+        self.emit_byte(OpCode::Constant(value));
+    }
+
+    fn compile_function(mut self) -> Self {
+        self.begin_scope();
+        
+        self.consume(TokenType::LeftParen, "Expect '(' after function name.");
+        if !self.check(TokenType::LeftParen) {
+            loop {
+                self.function.arity += 1;
+                if self.function.arity > 255 {
+                    self.error(
+                        "Can't have more than 255 parameters.", 
+                        self.previous.start,
+                        self.previous.length,
+                        self.previous.typ,
+                        self.previous.line
+                    );
+                }
+                
+                let constant = self.parse_variable("Expect parameter name.", TokenType::Var);
+                self.define_variable(constant);
+
+                if !self.match_and_advance(TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+        self.consume(TokenType::RightParen, "Expect ')' after parameters.");
+        self.consume(TokenType::RightBrace, "Expect '{' before function body.");
+        
+        self.block();
+        self
     }
 
     fn val_declaration(&mut self) {
@@ -435,7 +486,7 @@ impl Compiler {
             return false;
         }
 
-        let res = self.scanner.lexeme(a.start, a.length) == self.scanner.lexeme(b.start, b.length);
+        let res = self.scanner.borrow_mut().lexeme(a.start, a.length) == self.scanner.borrow_mut().lexeme(b.start, b.length);
         res
     }
 
@@ -472,12 +523,16 @@ impl Compiler {
     }
 
     fn mark_initialized(&mut self) {
+        if self.scope_depth == 0 {
+            return;
+        }
         self.locals[self.local_count - 1].depth = self.scope_depth as i32;
     }
 
     fn identifier_constant(&mut self) -> (usize, TokenType) {
         let lexeme = self
             .scanner
+            .borrow()
             .lexeme(self.previous.start, self.previous.length);
         match self.current_chunk().find_identifier(&lexeme) {
             Some((index, value)) => match value {
@@ -530,6 +585,7 @@ impl Compiler {
     fn number(&mut self) {
         let number = self
             .scanner
+            .borrow()
             .lexeme(self.previous.start, self.previous.length);
         let value = Value::Number(number.parse::<f64>().unwrap());
         self.emit_constant(value);
@@ -540,7 +596,7 @@ impl Compiler {
         let string = Value::SourceStr(SourceStr::new(
             self.previous.start,
             self.previous.length,
-            Rc::clone(&self.scanner.source),
+            Rc::clone(&self.scanner.borrow().source),
         ));
 
         let value = self.emit_constant(string);
@@ -762,7 +818,7 @@ impl Compiler {
         self.panic_mode = true;
         self.had_error = true;
 
-        let lexeme = self.scanner.lexeme(start, length);
+        let lexeme = self.scanner.borrow().lexeme(start, length);
         Self::error_at(lexeme, msg, typ, line)
     }
 

@@ -3,10 +3,11 @@ use std::{
     fs,
     io::{self, BufRead, Write},
     rc::Rc,
+    cell::RefCell,
     str,
 };
 
-use crate::{error::codes::ErrCode, frontend::compiler::Compiler};
+use crate::{error::codes::ErrCode, frontend::compiler::Compiler, frontend::scanner::Scanner};
 
 use super::{
     call_frame::CallFrame, function_obj::FunctionType, obj::Obj, op_code::OpCode, value::Value,
@@ -82,7 +83,7 @@ impl Vm {
 
     pub fn interpret(&mut self, source: String) -> Result<(), ErrCode> {
         let compiler =
-            Compiler::new(source, FunctionType::Script, self.debug_print_code).compile()?;
+            Compiler::new(Rc::new(RefCell::new(Scanner::new(source))), None, String::new(), FunctionType::Script, self.debug_print_code).compile()?;
         let frame = CallFrame::new(compiler.function, 0, 0);
         self.frames.push(frame);
         self.frame_count = self.frames.len();

@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::source_str::SourceStr;
+use super::{source_str::SourceStr, function_obj::FunctionObj};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -10,6 +10,7 @@ pub enum Value {
     SourceStr(SourceStr),
     VarIdent(String),
     ValIdent(String),
+    Function(FunctionObj),
     Nil,
 }
 
@@ -28,6 +29,7 @@ impl fmt::Display for Value {
             Self::SourceStr(s) => write!(f, "\"{}\"", s),
             Self::VarIdent(s) => write!(f, "<var {}>", s),
             Self::ValIdent(s) => write!(f, "<val {}>", s),
+            Self::Function(o) => write!(f, "{}", o.name),
             Self::Nil => write!(f, "nil"),
         }
     }
